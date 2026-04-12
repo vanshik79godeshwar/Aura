@@ -1,1 +1,4 @@
 # Add your project requirements here
+python-dotenv 
+langgraph 
+langchain-google-genai
