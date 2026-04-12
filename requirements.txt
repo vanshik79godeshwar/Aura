@@ -5,5 +5,10 @@ streamlit
 pandas
 plotly
 altair
+duckdb
+
 langgraph
+
 langchain-google-genai
+pydantic
+
