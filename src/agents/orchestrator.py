@@ -10,6 +10,9 @@ llm = ChatGroq(
     temperature=0,
     max_retries=3
 )
+from src.agents.oracle import lexicon
+from src.agents.analyst import call_analyst as analyst
+
 
 class OrchestratorDecision(BaseModel):
     next_action: Literal["metadata_retriever", "analyst_and_math", "sql_sentry", "visualizer_and_storyteller", "END"] = Field(
@@ -62,6 +65,7 @@ def metadata_retriever(state: AgentWorkspace) -> dict:
         error_logs = list(state.get("error_logs", []))
         error_logs.append(f"[metadata_retriever] fallback or error: {str(e)}")
         return {"current_status": "[metadata_retriever] executed via fallback", "error_logs": error_logs}
+
 
 def analyst_and_math(state: AgentWorkspace) -> dict:
     try:
