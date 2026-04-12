@@ -4,6 +4,7 @@ sentence-transformers
 python-dotenv
 streamlit
 pandas
-python-dotenv
 plotly
 altair
+langgraph
+langchain-google-genai
