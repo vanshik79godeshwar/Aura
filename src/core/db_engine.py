@@ -28,6 +28,10 @@ class DBEngine:
             # Table name is the exact filename of the CSV (e.g. 'sales_data')
             table_name = os.path.splitext(os.path.basename(filepath))[0]
             
+            # Need to get columns from the csv file
+            with open(filepath, 'r', encoding='utf-8') as f:
+                header = f.readline().strip()
+                columns = [c.strip() for c in header.split(',')] if header else []
 
             # Heuristically set column types so Jaideep's mathematical equations can process them
             col_defs = []
