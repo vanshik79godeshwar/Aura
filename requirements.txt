@@ -1,1 +1,4 @@
 # Add your project requirements here
+chromadb
+sentence-transformers
+python-dotenv
