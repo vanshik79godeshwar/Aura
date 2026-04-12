@@ -1,1 +1,5 @@
-# Add your project requirements here
+streamlit
+pandas
+python-dotenv
+plotly
+altair
