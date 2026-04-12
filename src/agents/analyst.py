@@ -12,6 +12,13 @@ import json
 import pandas as pd
 from typing import Dict, Any, List
 from pydantic import BaseModel, Field
+
+from dotenv import load_dotenv
+
+# Resolve .env from the project root regardless of Streamlit's working directory
+_ENV_PATH = os.path.join(os.path.dirname(__file__), "..", "..", ".env")
+load_dotenv(dotenv_path=os.path.abspath(_ENV_PATH))
+
 from langchain_groq import ChatGroq
 from src.core.workspace import AgentWorkspace
 from src.core.db_engine import DBEngine

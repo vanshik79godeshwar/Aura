@@ -12,3 +12,10 @@ def render_message(role: str, content: str):
     """
     with st.chat_message(role):
         st.markdown(content)
+
+def render_insight_card(content: str):
+    """
+    Renders an elevated insight card for Storyteller findings using NatWest branding.
+    Why it exists: To provide an analytical "pop" to critical LLM narrative summaries.
+    """
+    st.info(f"**Aura Intelligence Summary:**\n\n{content}", icon="💡")

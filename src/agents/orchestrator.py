@@ -1,12 +1,19 @@
 from typing import Literal
+import os
 from pydantic import BaseModel, Field
+from dotenv import load_dotenv
+
+# Resolve .env from project root regardless of working directory
+_ENV_PATH = os.path.join(os.path.dirname(__file__), "..", "..", ".env")
+load_dotenv(dotenv_path=os.path.abspath(_ENV_PATH))
+
 from langgraph.graph import StateGraph, END
 from langchain_google_genai import ChatGoogleGenerativeAI
 from src.core.workspace import AgentWorkspace
 from langchain_groq import ChatGroq
 
 llm = ChatGroq(
-    model="llama-3.1-8b-instant",  # The current supported model ID
+    model="llama-3.1-8b-instant",
     temperature=0,
     max_retries=3
 )

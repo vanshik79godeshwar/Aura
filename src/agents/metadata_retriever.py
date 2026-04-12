@@ -31,6 +31,22 @@ class MetadataRetriever:
             return tables
         return []
 
+def run_retriever(state: dict) -> dict:
+    """
+    Worker function for the orchestrator.
+    Retrieves Top 3 relevant tables and updates the state.
+    """
+    retriever = MetadataRetriever()
+    query = state.get("user_query", "")
+    tables = retriever.get_relevant_tables(query, top_k=3)
+    
+    print(f"Agent [Retriever]: Top 3 tables identified -> {tables}")
+    
+    return {
+        "relevant_tables": tables,
+        "current_status": f"Retrieved {len(tables)} relevant tables"
+    }
+
 if __name__ == "__main__":
     # Interactive Console for Contextual Metadata Retrieval
     print("\n" + "="*50)
