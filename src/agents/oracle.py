@@ -22,6 +22,34 @@ class OracleExtraction(BaseModel):
         description="The type of advanced analysis needed depending on phrasing ('why'->rca, 'compare'->comparison, 'predict/what-if'->forecast, else->standard)."
     )
 
+def _classify_intent_locally(query: str) -> OracleExtraction:
+    """
+    Rule-based intent classifier used as a fallback when the Gemini API is unavailable.
+    Applies simple keyword detection to map queries to the correct analytical track.
+    This ensures Jaideep's math pipeline always routes correctly regardless of API status.
+    """
+    query_lower = query.lower()
+    
+    # Detect analysis type from semantic keywords
+    if any(kw in query_lower for kw in ["why", "drop", "decline", "fell", "cause", "reason"]):
+        analysis_type = "rca"
+    elif any(kw in query_lower for kw in ["predict", "forecast", "next", "what if", "future", "project"]):
+        analysis_type = "forecast"
+    elif any(kw in query_lower for kw in ["compare", "wow", "mom", "week", "month", "versus", "vs"]):
+        analysis_type = "comparison"
+    else:
+        analysis_type = "standard"
+    
+    # Extract metrics from well-known business keywords
+    metrics = []
+    for kw in ["revenue", "sales", "balance", "amount", "transactions", "loans", "profit", "spending"]:
+        if kw in query_lower:
+            metrics.append(kw)
+    if not metrics:
+        metrics = ["general"]
+    
+    return OracleExtraction(identified_metrics=metrics, analysis_type=analysis_type)
+
 def analyze_intent(query: str) -> OracleExtraction:
     """Uses a dynamic LLM via LangChain to extract semantic features."""
     # Instantiating the Gemini model wrapper 
@@ -60,11 +88,13 @@ def lexicon(state: AgentWorkspace) -> Dict[str, Any]:
             "current_status": "lexicon_complete"
         }
     except Exception as e:
-        print(f"Agent [Lexicon]: Warning - LLM parsing failed: {e}")
-        # graceful fallback
+        print(f"Agent [Lexicon]: LLM unavailable ({type(e).__name__}), falling back to rule-based classification.")
+        # Fall back to keyword-based classification — ensures RCA/Forecast/Comparison still route correctly
+        extraction = _classify_intent_locally(query)
+        print(f"Agent [Lexicon]: Rule-based Metrics -> {extraction.identified_metrics} | Type -> {extraction.analysis_type}")
         return {
-            "identified_metrics": ["general"],
-            "analysis_type": "standard",
+            "identified_metrics": extraction.identified_metrics,
+            "analysis_type": extraction.analysis_type,
             "relevant_tables": relevant_tables,
-            "current_status": "lexicon_error"
+            "current_status": "lexicon_fallback"
         }

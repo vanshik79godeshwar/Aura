@@ -2,6 +2,8 @@ import json
 import duckdb
 import os
 import re
+import random
+from datetime import date, timedelta
 
 class DBEngine:
     def __init__(self):
@@ -27,15 +29,40 @@ class DBEngine:
             if not columns:
                 continue
             
-            # Default everything to VARCHAR for the mock setup
-            col_defs = ", ".join([f"{col} VARCHAR" for col in columns])
-            create_stmt = f"CREATE TABLE {table_name} ({col_defs});"
+            # Heuristically set column types so Jaideep's mathematical equations can process them
+            col_defs = []
+            col_types = []
+            
+            for col in columns:
+                col_lower = col.lower()
+                if any(kw in col_lower for kw in ['amount', 'balance', 'value', 'limit', 'points', 'rate', 'revenue', 'return']):
+                    col_defs.append(f"{col} FLOAT")
+                    col_types.append("FLOAT")
+                elif any(kw in col_lower for kw in ['date', 'dob']):
+                    col_defs.append(f"{col} DATE")
+                    col_types.append("DATE")
+                else:
+                    col_defs.append(f"{col} VARCHAR")
+                    col_types.append("VARCHAR")
+                    
+            create_stmt = f"CREATE TABLE {table_name} ({', '.join(col_defs)});"
             self.conn.execute(create_stmt)
             
-            # Insert one dummy row per table to ensure queries return something verifiable
-            dummy_vals = ", ".join(["'mock_data'" for _ in columns])
-            insert_stmt = f"INSERT INTO {table_name} VALUES ({dummy_vals});"
-            self.conn.execute(insert_stmt)
+            # Insert 10 logical chronological rows to support RCA / Forecasting arrays
+            start_date = date(2025, 1, 1)
+            for i in range(10):
+                dummy_vals = []
+                for c_type in col_types:
+                    if c_type == "FLOAT":
+                        dummy_vals.append(str(round(random.uniform(100.0, 5000.0), 2)))
+                    elif c_type == "DATE":
+                        curr_date = start_date + timedelta(days=i)
+                        dummy_vals.append(f"'{curr_date.isoformat()}'")
+                    else:
+                        dummy_vals.append(f"'mock_{i}'")
+                
+                insert_stmt = f"INSERT INTO {table_name} VALUES ({', '.join(dummy_vals)});"
+                self.conn.execute(insert_stmt)
             
         print("[DBEngine] In-Memory DuckDB Initialized with 10 Mock Tables.")
 

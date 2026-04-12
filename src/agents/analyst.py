@@ -9,62 +9,109 @@ Also dynamically hallucinates mock numerical arrays to test statistical math mod
 import os
 import statistics
 import json
+import pandas as pd
 from typing import Dict, Any, List
 from pydantic import BaseModel, Field
 from langchain_google_genai import ChatGoogleGenerativeAI
 from src.core.workspace import AgentWorkspace
+from src.core.db_engine import DBEngine
 
 llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
 
 class DynamicSQLPayload(BaseModel):
     sql_query: str = Field(description="The generated valid SQL string to fulfill the analytical intent.")
-    
-class MockDataPayload(BaseModel):
-    timeseries_array: List[float] = Field(description="A sequential numerical array representing historical data points over time or categories. Min 2 points.")
 
 # ---------------------------------------------------------
 # Dynamic LLM Database Connectors
 # ---------------------------------------------------------
-def _generate_sql_query(metrics: list[str], analysis_type: str, relevant_tables: list[str]) -> str:
-    """Uses Gemini to dynamically formulate the database table querying logic using verified context."""
-    structured_llm = llm.with_structured_output(DynamicSQLPayload)
-    prompt = (
-        f"You are a Senior SQL Analyst. A user wants to do a '{analysis_type}' analysis.\n"
-        f"The relevant metrics are: {metrics}\n"
-        f"The verified database tables you MUST query from are: {relevant_tables}\n"
-        f"Write a standard, logical SQL query to fetch data that supports this. Do not guess table names outside of the verified ones! "
-        f"If forecast/comparison, GROUP BY a date-like column. If rca, check for anomalies."
-    )
-    result = structured_llm.invoke(prompt)
-    return result.sql_query
+def _build_fallback_sql(metrics: list[str], analysis_type: str, relevant_tables: list[str]) -> str:
+    """
+    Rule-based SQL generator used when the Gemini API is unavailable (e.g. rate-limited).
+    Reads the metadata_dictionary.json to find the correct numeric column for each table,
+    ensuring the SQL is always valid against the DuckDB schema.
+    """
+    import json
+    metadata_path = os.path.join(os.path.dirname(__file__), "..", "core", "metadata_dictionary.json")
+    numeric_keywords = ['amount', 'balance', 'value', 'limit', 'points', 'rate', 'revenue', 'return', 'principal', 'outstanding', 'utilization', 'ytd']
+    
+    try:
+        with open(metadata_path) as f:
+            meta = json.load(f)
+        tables_meta = meta.get("tables", {})
+    except Exception:
+        tables_meta = {}
+    
+    # Find the first relevant_table that has a numeric column, and use it
+    chosen_table = None
+    chosen_col = None
+    for table in relevant_tables:
+        cols = list(tables_meta.get(table, {}).get("columns", {}).keys())
+        for col in cols:
+            if any(kw in col.lower() for kw in numeric_keywords):
+                chosen_table = table
+                chosen_col = col
+                break
+        if chosen_table:
+            break
+    
+    # Ultimate fallback: use transactions.amount which always exists
+    if not chosen_table:
+        chosen_table = "transactions"
+        chosen_col = "amount"
+    
+    if analysis_type == "comparison":
+        return f"SELECT {chosen_col} FROM {chosen_table} LIMIT 2;"
+    else:
+        return f"SELECT {chosen_col} FROM {chosen_table} LIMIT 10;"
 
-def _fetch_mock_timeseries(analysis_type: str, sql: str) -> List[float]:
-    """Uses Gemini to hallucinate a realistic mathematical array so our formulas can run dynamically."""
-    structured_llm = llm.with_structured_output(MockDataPayload)
-    prompt = (
-        f"Our pipeline needs mock data since the DB isn't hooked up. "
-        f"We are running analysis type: '{analysis_type}' with SQL: '{sql}'\n"
-        f"Generate a realistic float array of at least 5 points representing the data. "
-        f"If 'forecast', make it logically trending. If 'rca', create a sudden drop at the end. "
-        f"If 'comparison', return exactly 2 points (e.g., this week vs last week)."
-    )
-    result = structured_llm.invoke(prompt)
-    return result.timeseries_array
+def _generate_sql_query(metrics: list[str], analysis_type: str, relevant_tables: list[str]) -> str:
+    """Uses Gemini to dynamically formulate the database table querying logic using verified context.
+    Falls back to a rule-based generator if the API quota is exhausted.
+    """
+    try:
+        structured_llm = llm.with_structured_output(DynamicSQLPayload)
+        prompt = (
+            f"You are a Senior SQL Analyst. A user wants to do a '{analysis_type}' analysis.\n"
+            f"The relevant metrics are: {metrics}\n"
+            f"The verified database tables you MUST query from are: {relevant_tables}\n"
+            f"Write a standard, logical SQL query to fetch data that supports this. Do not guess table names outside of the verified ones! "
+            f"If forecast/comparison, GROUP BY a date-like column. If rca, check for anomalies."
+        )
+        result = structured_llm.invoke(prompt)
+        return result.sql_query
+    except Exception:
+        # Quota exhausted or LLM unavailable — fall back to rule-based SQL
+        fallback = _build_fallback_sql(metrics, analysis_type, relevant_tables)
+        print(f"Agent [Analyst]: LLM unavailable, using rule-based SQL -> {fallback}")
+        return fallback
 
 def _fetch_data_from_db(sql: str, analysis_type: str) -> dict:
-    """Executes the SQL query against the database to fetch raw data or falls back to LLM hallucination."""
-    db_path = os.getenv("DB_PATH")
-    if db_path and db_path != "your_db_path_here":
-        # Production execution logic...
-        pass 
+    """Executes the SQL query against DuckDB and extracts a pure mathematical array."""
+    engine = DBEngine()
+    
+    try:
+        # Executes SQL securely returning a Pandas DataFrame
+        df = engine.execute_query(sql)
         
-    # Dynamically generate fake datasets via Gemini to prevent static hardcoding
-    fake_array = _fetch_mock_timeseries(analysis_type, sql)
-    return {
-        "status": "success", 
-        "data": f"Dynamically hallucinated tabular data for query: {sql}",
-        "timeseries_array": fake_array
-    }
+        # Heuristically extract the core tracking float column out of the Pandas result matrix
+        numeric_cols = df.select_dtypes(include=['number']).columns
+        if not numeric_cols.empty:
+            timeseries_array = df[numeric_cols[0]].dropna().tolist()
+        else:
+            timeseries_array = [0.0] * 5 # Fallback to prevent math formulas crashing
+            
+        return {
+            "status": "success", 
+            "data": df.to_json(orient='records'),
+            "timeseries_array": timeseries_array
+        }
+    except Exception as e:
+        print(f"Agent [Analyst] DB Error: {e}")
+        return {
+            "status": "error", 
+            "data": "[]",
+            "timeseries_array": [0.0] * 5
+        }
 
 # ---------------------------------------------------------
 # Advanced Analytics (Statistics & Math Hub)

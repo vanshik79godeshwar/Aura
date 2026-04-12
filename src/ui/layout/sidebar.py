@@ -16,8 +16,21 @@ def render_sidebar():
         
         uploaded_file = st.file_uploader("Data Source", type=["csv", "xlsx"], label_visibility="hidden")
         
+        import pandas as pd
+        
         st.markdown("---")
         if uploaded_file:
-            st.success(f"✅ Ready: {uploaded_file.name}")
+            try:
+                # Read the file into a dataframe
+                if uploaded_file.name.endswith('.csv'):
+                    df = pd.read_csv(uploaded_file)
+                else:
+                    df = pd.read_excel(uploaded_file)
+                    
+                # Save into the global session state for backend access
+                st.session_state["uploaded_data"] = df
+                st.success(f"✅ Ready: {uploaded_file.name}")
+            except Exception as e:
+                st.error(f"Failed to read file: {e}")
         else:
             st.info("Waiting for data source...")
