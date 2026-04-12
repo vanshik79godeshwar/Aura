@@ -4,6 +4,6 @@ sentence-transformers
 python-dotenv
 streamlit
 pandas
-python-dotenv
 plotly
 altair
+duckdb

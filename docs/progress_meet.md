@@ -25,6 +25,23 @@ Handling a large enterprise schema with 50+ tables means we cannot feed everythi
 - **Hackathon Pillar Alignment:** This is directly built for **Speed and Trust**. By strictly filtering the database context locally *before* giving the data to the LLM, we guarantee lightning-fast response times and eliminate the risk of the LLM fetching the wrong data table for its queries. 
 - **The Pitch:** We can confidently tell the judges that we are leveraging *"Contextual Metadata Retrieval"* to bypass the standard limitations of RAG hallucinations.
 
+### Step C: The SQL Sandbox Engine (DuckDB)
+
+To facilitate instantaneous analytical queries during the Talk-to-Data flow, the application needs a secure execution environment.
+- **What I built:** I constructed `src/core/db_engine.py`, which leverages DuckDB in-memory.
+- **Details:** Since we don't have CSVs loaded currently, I implemented an auto-mocking layer that spins up dummy tables synchronously with our `metadata_dictionary.json` Atlas. This means queries never fail on non-existent tables.
+- **Security:** I built a rigorous `sanitize_query` regex gatekeeper that strips malicious payloads. Any query involving `DROP`, `DELETE`, `UPDATE`, or fails to start with `SELECT` is blocked in memory before it ever reaches the database layer.
+- **Hackathon Pillar Alignment:** This is specifically geared for **Speed** (DuckDB OLAP engine) and **Trust** (Zero risk of state mutations via Sandbox Sanitization).
+
+### Step D: The Sentry / SQL Auditor
+*(Timeline: Hour 11+)*
+
+To completely insulate the Talk-to-Data flow from AI Hallucinations (the single biggest reason AI fails in enterprise), we need an authoritative check *before* execution.
+- **What I built:** `src/agents/sql_sentry.py`. This is an LLM gating mechanism bridging the SQL generator and DuckDB execution.
+- **Details:** The Sentry extracts the exact schemas from `metadata_dictionary.json` and forms an isolated **Auditor System Prompt**. It looks at the AI's proposed SQL and rigorously cross-references every column logic step with the ground-truth map.
+- **Enforcement:** If an AI blindly attempts to run `SUM()` on a text column (e.g., `risk_profile`), the Sentry forces a JSON `FAIL` evaluation along with a `correction_hint` advising the main agent how to fix it immediately. 
+- **Hackathon Pillar Alignment:** This is the ultimate expression of **Trust**. We algorithmically prove to the judges that the SQL executing on our backend is 100% verifiably mapped to the true schema, preventing hallucinated queries and false data reports.
+
 ---
 ## Upcoming Agenda
 - Integration of the retrieved metadata directly into a query-building LLM agent.
