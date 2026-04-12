@@ -1,2 +1,8 @@
-# Add your project requirements here
+streamlit
+langchain
+langchain-google-genai
+langgraph
 python-dotenv
+pandas
+numpy
+chromadb

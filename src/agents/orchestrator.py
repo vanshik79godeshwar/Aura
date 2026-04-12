@@ -1,76 +1,93 @@
 from typing import Literal
+from pydantic import BaseModel, Field
+from langgraph.graph import StateGraph, END
+from langchain_google_genai import ChatGoogleGenerativeAI
 from src.core.workspace import AgentWorkspace
 
-from src.agents.oracle import call_oracle as call_semantic_layer
-from src.agents.analyst import call_analyst
 
-# ---------------------------------------------------------
-# Worker Agent Dummy Nodes (Sentry & Storyteller)
-# ---------------------------------------------------------
+# Initialize the Gemini LLM
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
 
-def call_sentry(state: AgentWorkspace) -> dict:
-    """Validates data and queries for correctness and security."""
-    print("Agent [Sentry]: Validating execution...")
-    return {"current_status": "sentry_complete"}
+class OrchestratorDecision(BaseModel):
+    next_action: Literal["lexicon", "analyst", "storyteller", "END"] = Field(
+        description="The next step in the pipeline."
+    )
 
-def call_storyteller(state: AgentWorkspace) -> dict:
-    """Crafts the final natural language response based on data."""
-    print("Agent [Storyteller]: Crafting response...")
-    return {"current_status": "storyteller_complete"}
+def plan_execution(state: AgentWorkspace) -> dict:
+    """The LLM router decides the next immediate step based on execution state."""
+    query = state.get("user_query", "")
+    metrics = state.get("identified_metrics", [])
+    sql = state.get("sql_query", "")
 
-# ---------------------------------------------------------
-# Conditional Routing Logic
-# ---------------------------------------------------------
-
-MAX_RETRIES = 3
-
-def route_after_analyst(state: AgentWorkspace) -> Literal["call_analyst", "call_storyteller"]:
-    """
-    If call_analyst populates error_logs, route back to call_analyst 
-    for self-correction up to MAX_RETRIES.
-    Otherwise, route to call_storyteller.
-    """
     errors = state.get("error_logs", [])
-    retries = state.get("retry_count", 0)
-
-    if errors and retries < MAX_RETRIES:
-        print(f"Orchestrator: Error detected. Routing to Analyst for self-correction. (Retry {retries + 1}/{MAX_RETRIES})")
-        return "call_analyst"
     
-    print("Orchestrator: Query successful or max retries hit. Routing to Storyteller.")
-    return "call_storyteller"
+    prompt = (
+        f"Look at the user_query and the error_logs.\n"
+        f"User Query: {query}\n"
+        f"Identified Metrics: {metrics}\n"
+        f"SQL Query: {sql}\n"
+        f"Error Logs: {errors}\n\n"
+        "If we haven't mapped metrics yet, route to 'lexicon'. "
+        "If metrics are mapped but no SQL exists, route to 'analyst'. "
+        "If analysis is done, route to 'storyteller'."
+    )
+    
+    # Use Pydantic structured output
+    structured_llm = llm.with_structured_output(OrchestratorDecision)
+    decision = structured_llm.invoke(prompt)
+    
+    print(f"Agent [plan_execution] routed to: {decision.next_action}")
+    return {
+        "next_action": decision.next_action,
+        "current_status": "[plan_execution] executed"
+    }
 
-# ---------------------------------------------------------
-# Sample State Graph Configuration (e.g. for LangGraph)
-# ---------------------------------------------------------
-"""
-from langgraph.graph import StateGraph, END
+def lexicon(state: AgentWorkspace) -> dict:
+    error_logs = list(state.get("error_logs", []))
+    error_logs.append("[lexicon] executed")
+    return {"current_status": "[lexicon] executed", "error_logs": error_logs}
 
-# Initialize the Master Agent routing logic
+def analyst(state: AgentWorkspace) -> dict:
+    error_logs = list(state.get("error_logs", []))
+    error_logs.append("[analyst] executed")
+    return {"current_status": "[analyst] executed", "error_logs": error_logs}
+
+def sentry(state: AgentWorkspace) -> dict:
+    error_logs = list(state.get("error_logs", []))
+    error_logs.append("[sentry] executed")
+    return {"current_status": "[sentry] executed", "error_logs": error_logs}
+
+def storyteller(state: AgentWorkspace) -> dict:
+    error_logs = list(state.get("error_logs", []))
+    error_logs.append("[storyteller] executed")
+    return {"current_status": "[storyteller] executed", "error_logs": error_logs}
+
+def route(state: AgentWorkspace) -> str:
+    """Routing function that reads next_action from state."""
+    action = state.get("next_action", "END")
+    if action == "END":
+        return END
+    return action
+
+# Define and compile the state graph
 workflow = StateGraph(AgentWorkspace)
 
-# Add nodes
-workflow.add_node("semantic_layer", call_semantic_layer)
-workflow.add_node("analyst", call_analyst)
-workflow.add_node("sentry", call_sentry)
-workflow.add_node("storyteller", call_storyteller)
+# Add strict nodes
+workflow.add_node("plan_execution", plan_execution)
+workflow.add_node("lexicon", lexicon)
+workflow.add_node("analyst", analyst)
+workflow.add_node("sentry", sentry)
+workflow.add_node("storyteller", storyteller)
 
-# Define routing
-workflow.set_entry_point("semantic_layer")
-workflow.add_edge("semantic_layer", "analyst")
+# Define conditional edges
+workflow.set_entry_point("plan_execution")
+workflow.add_conditional_edges("plan_execution", route)
 
-workflow.add_conditional_edges(
-    "analyst",
-    route_after_analyst,
-    {
-        "call_analyst": "analyst",
-        "call_storyteller": "storyteller" 
-        # Alternatively, route to sentry first before storyteller
-    }
-)
-
+# For graph to compile correctly, other nodes lead to END
+workflow.add_edge("lexicon", END)
+workflow.add_edge("analyst", END)
+workflow.add_edge("sentry", END)
 workflow.add_edge("storyteller", END)
 
-# compile to create the master orchestrator application
+# Compile into app variable
 app = workflow.compile()
-"""

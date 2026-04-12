@@ -1,1 +1,1 @@
-# Empty init file
+"""UI module initialization."""

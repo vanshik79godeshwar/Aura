@@ -1,0 +1,103 @@
+{
+  "tables": {
+    "transactions": {
+      "description": "A record of all financial transactions made by NatWest customers.",
+      "columns": {
+        "tx_id": { "description": "Unique identifier for the transaction." },
+        "account_id": { "description": "The unique identifier of the bank account from which the transaction was made." },
+        "amount": { "description": "Transaction amount in GBP. Positive values represent credits, negative values represent debits." },
+        "tx_date": { "description": "The date and time when the transaction was executed, in UTC." },
+        "merchant_name": { "description": "The name of the business or entity where the transaction occurred." }
+      }
+    },
+    "accounts": {
+      "description": "Details of customer bank accounts including balances and account types.",
+      "columns": {
+        "account_id": { "description": "Unique identifier for the bank account." },
+        "customer_id": { "description": "Unique identifier for the customer who owns the account." },
+        "account_type": { "description": "The type of the account. E.g., 'Checking', 'Savings'." },
+        "current_balance": { "description": "The current available balance in the account in GBP." }
+      }
+    },
+    "customers": {
+      "description": "Personal and contact information for individual retail customers.",
+      "columns": {
+        "customer_id": { "description": "Unique identifier for the customer." },
+        "first_name": { "description": "First name of the customer." },
+        "last_name": { "description": "Last name of the customer." },
+        "email": { "description": "Contact email address." },
+        "dob": { "description": "Date of Birth." },
+        "risk_profile": { "description": "Assigned risk profile score: Low, Medium, High." }
+      }
+    },
+    "loans": {
+      "description": "Details about active and closed loans provided to customers.",
+      "columns": {
+        "loan_id": { "description": "Unique identifier for the loan." },
+        "customer_id": { "description": "The customer who took the loan." },
+        "principal_amount": { "description": "Initial borrowed amount in GBP." },
+        "interest_rate": { "description": "Annual Percentage Rate (APR) applied to the loan." },
+        "term_months": { "description": "Duration of the loan in months." },
+        "outstanding_balance": { "description": "Amount remaining to be paid." }
+      }
+    },
+    "credit_cards": {
+      "description": "Information on credit card products held by customers.",
+      "columns": {
+        "card_id": { "description": "Unique system identifier for the credit card." },
+        "customer_id": { "description": "Customer holding the credit card." },
+        "credit_limit": { "description": "Maximum allowed spending limit." },
+        "current_utilization": { "description": "Amount of credit currently used." },
+        "reward_points": { "description": "Loyalty points accumulated on the card." }
+      }
+    },
+    "branches": {
+      "description": "Geographical and operational data for physical bank branches.",
+      "columns": {
+        "branch_id": { "description": "Unique identifier for the bank branch." },
+        "branch_name": { "description": "Name or location identifier of the branch." },
+        "region": { "description": "Geographical region (e.g., Scotland, London, Wales)." },
+        "manager_name": { "description": "Name of the presiding branch manager." }
+      }
+    },
+    "employees": {
+      "description": "Records of bank personnel and their roles.",
+      "columns": {
+        "employee_id": { "description": "Unique ID of the employee." },
+        "branch_id": { "description": "Associated branch ID where the employee works." },
+        "role": { "description": "Job title (e.g., Teller, Manager, Advisor)." },
+        "hire_date": { "description": "Date the employee joined the company." }
+      }
+    },
+    "mortgages": {
+      "description": "Long-term home loan details and property appraisals.",
+      "columns": {
+        "mortgage_id": { "description": "Unique identifier for the mortgage." },
+        "customer_id": { "description": "Customer taking out the mortgage." },
+        "property_value": { "description": "Assessed value of the underlying property." },
+        "ltv_ratio": { "description": "Loan-to-Value ratio." },
+        "fixed_rate_expiry": { "description": "Date when the initial fixed interest rate expires." }
+      }
+    },
+    "investments": {
+      "description": "Customer portfolio details for wealth management and stocks.",
+      "columns": {
+        "portfolio_id": { "description": "Unique identifier for the investment portfolio." },
+        "customer_id": { "description": "Customer holding the investments." },
+        "asset_class": { "description": "Type of investment (Equities, Bonds, Mutual Funds)." },
+        "total_value": { "description": "Current market value of the investments." },
+        "ytd_return": { "description": "Year-To-Date return percentage." }
+      }
+    },
+    "audit_logs": {
+      "description": "System logs for tracking data access and security events.",
+      "columns": {
+        "log_id": { "description": "Unique identifier for the log entry." },
+        "timestamp": { "description": "When the event occurred." },
+        "event_type": { "description": "Type of event (e.g., Login, Query, Export)." },
+        "user_id": { "description": "ID of the employee or customer triggering the event." },
+        "ip_address": { "description": "IP address from where the request originated." }
+      }
+    }
+  }
+}

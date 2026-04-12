@@ -13,3 +13,4 @@ class AgentWorkspace(TypedDict, total=False):
     error_logs: List[str]
     current_status: str
     retry_count: int  # Helpful for handling retry loops in the orchestrator
+    next_action: str  # Routing decision from the orchestrator
