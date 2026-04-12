@@ -4,7 +4,8 @@ from langgraph.graph import StateGraph, END
 from langchain_google_genai import ChatGoogleGenerativeAI
 from src.core.workspace import AgentWorkspace
 
-
+from src.agents.oracle import lexicon
+from src.agents.analyst import call_analyst as analyst
 # Initialize the Gemini LLM
 llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
 
@@ -42,15 +43,6 @@ def plan_execution(state: AgentWorkspace) -> dict:
         "current_status": "[plan_execution] executed"
     }
 
-def lexicon(state: AgentWorkspace) -> dict:
-    error_logs = list(state.get("error_logs", []))
-    error_logs.append("[lexicon] executed")
-    return {"current_status": "[lexicon] executed", "error_logs": error_logs}
-
-def analyst(state: AgentWorkspace) -> dict:
-    error_logs = list(state.get("error_logs", []))
-    error_logs.append("[analyst] executed")
-    return {"current_status": "[analyst] executed", "error_logs": error_logs}
 
 def sentry(state: AgentWorkspace) -> dict:
     error_logs = list(state.get("error_logs", []))
