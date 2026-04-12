@@ -52,48 +52,49 @@ def render_sidebar():
         st.title("Aura Settings")
         st.markdown("We keep things simple. Just upload your data and start talking.")
         
-        uploaded_file = st.file_uploader("Data Source", type=["csv", "xlsx"], label_visibility="hidden")
+        uploaded_files = st.file_uploader("Data Source", type=["csv", "xlsx"], label_visibility="hidden", accept_multiple_files=True)
         
-        import pandas as pd
-        
-
         st.markdown("---")
 
-        if uploaded_file:
-
-            # Guard: only process once per unique uploaded file (avoid re-run loops)
-            file_key = f"processed_{uploaded_file.name}_{uploaded_file.size}"
-            if st.session_state.get(file_key):
-                st.success(f"✅ Ready: **{uploaded_file.name}**")
-                st.caption("Data is live in AURA's query engine.")
-            else:
+        if uploaded_files:
+            new_uploads = False
+            
+            # Step 1: Save all new uploads to DuckDB
+            for uploaded_file in uploaded_files:
+                file_key = f"processed_{uploaded_file.name}_{uploaded_file.size}"
                 table_name = os.path.splitext(uploaded_file.name)[0].replace(" ", "_").lower()
+                
+                if st.session_state.get(file_key):
+                    st.success(f"✅ Ready: **{uploaded_file.name}**")
+                    st.caption(f"`{table_name}` table is live in AURA's database.")
+                else:
+                    new_uploads = True
+                    with st.status(f"Loading **{uploaded_file.name}**...", expanded=True) as status:
+                        try:
+                            st.write("📂 Reading file...")
+                            if uploaded_file.name.endswith(".xlsx"):
+                                df = pd.read_excel(uploaded_file)
+                            else:
+                                df = pd.read_csv(uploaded_file)
 
-                with st.status(f"Loading **{uploaded_file.name}**...", expanded=True) as status:
+                            st.write(f"🦆 Saving `{table_name}` to AURA database...")
+                            _save_to_duckdb(df, table_name)
+                            
+                            status.update(label=f"✅ {uploaded_file.name} parsed!", state="complete", expanded=False)
+                            st.session_state[file_key] = True
+                            st.success(f"✅ Ready: **{uploaded_file.name}** → `{table_name}` table")
+                            st.caption(f"Rows: {len(df):,} | Columns: {len(df.columns)}")
+                        except Exception as e:
+                            status.update(label=f"❌ Upload failed for {uploaded_file.name}", state="error", expanded=True)
+                            st.error(f"Error processing file: {e}")
+            
+            # Step 2: If any new files were added, we rebuild the semantic vector index ONE TIME for all of them
+            if new_uploads:
+                with st.spinner("🧠 Profiling new tables and re-indexing AURA's vector engine..."):
                     try:
-                        # Step 1: Read file into DataFrame
-                        st.write("📂 Reading file...")
-                        if uploaded_file.name.endswith(".xlsx"):
-                            df = pd.read_excel(uploaded_file)
-                        else:
-                            df = pd.read_csv(uploaded_file)
-
-                        # Step 2: Persist to DuckDB
-                        st.write(f"🦆 Saving `{table_name}` to AURA database...")
-                        _save_to_duckdb(df, table_name)
-
-                        # Step 3: Regenerate metadata + re-index vectors
-                        st.write("🧠 Profiling schema and re-indexing vector engine...")
                         _run_pipeline()
-
-                        status.update(label="✅ Upload complete!", state="complete", expanded=False)
-                        st.session_state[file_key] = True
-                        st.success(f"✅ Ready: **{uploaded_file.name}** → `{table_name}` table")
-                        st.caption(f"Rows: {len(df):,} | Columns: {len(df.columns)}")
-
+                        st.info("✅ System synced. Aura is ready to answer questions across all datasets.")
                     except Exception as e:
-                        status.update(label="❌ Upload failed", state="error", expanded=True)
-                        st.error(f"Error processing file: {e}")
-
+                        st.error(f"Failed to rebuild index: {e}")
         else:
-            st.info("⬆️ Upload a CSV or Excel file to begin.")
+            st.info("⬆️ Upload CSV or Excel file(s) to begin.")
