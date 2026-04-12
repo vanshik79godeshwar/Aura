@@ -48,19 +48,19 @@ def render_sidebar():
     Why it exists: To organize system configurations and data inputs in one place.
     """
     with st.sidebar:
-        st.title("✨ Aura Settings")
-        st.markdown("Upload your data and start talking — Aura handles the rest.")
 
-        uploaded_file = st.file_uploader(
-            "Data Source",
-            type=["csv", "xlsx"],
-            label_visibility="hidden",
-            key="data_uploader"
-        )
+        st.title("Aura Settings")
+        st.markdown("We keep things simple. Just upload your data and start talking.")
+        
+        uploaded_file = st.file_uploader("Data Source", type=["csv", "xlsx"], label_visibility="hidden")
+        
+        import pandas as pd
+        
 
         st.markdown("---")
 
         if uploaded_file:
+
             # Guard: only process once per unique uploaded file (avoid re-run loops)
             file_key = f"processed_{uploaded_file.name}_{uploaded_file.size}"
             if st.session_state.get(file_key):
@@ -94,5 +94,6 @@ def render_sidebar():
                     except Exception as e:
                         status.update(label="❌ Upload failed", state="error", expanded=True)
                         st.error(f"Error processing file: {e}")
+
         else:
             st.info("⬆️ Upload a CSV or Excel file to begin.")

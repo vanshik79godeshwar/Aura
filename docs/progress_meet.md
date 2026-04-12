@@ -48,8 +48,25 @@ We are officially out of dummy-data development environment logic. The core stac
 - **Value-Level Semantic Context:** Radically enhanced `generate_metadata.py`. Instead of just parsing column headers, it samples the first 50 rows of data. If it finds categorical text variables (e.g., `North`, `South` in the `region` column), it extracts and embeds those exact unique values straight into the Semantic Dictionary. This mathematically guarantees that if a user asks a hyper-specific question (e.g., "revenue in the South"), the AI automatically closes the 'Value Gap' and maps the word 'South' to the correct table contextually.
 - **Interactive Retrieval Interface:** Rewrote `src/agents/metadata_retriever.py` with an infinite loop interactive console to allow real-time manual testing of the vector search pipeline without relying on hardcoded scripts.
 - **Ghost Data Matrix Purge:** Redesigned ChromaDB ingestion to securely execute `.delete_collection()` before repopulating, permanently dropping the old NatWest mock data matrices and guaranteeing perfect sync with the uploaded asset folders.
+- **Persistent Data Mastery (DuckDB Integration):** Architected the system to use `aura.db` as the persistent source of truth. Removed all physical CSV dependencies in the backend; the UI now writes directly to the shared DB, and all agents (Retriever, Analyst, Sentry) query this unified, high-speed store.
+
+### Step E: Real-Time Auto-Indexing Pipeline
+To ensure the "Talk-to-Data" experience is instantaneous upon file upload, I automated the entire metadata and vector lifecycle.
+- **What I built:** A "Zero-Touch" upload engine in `src/ui/layout/sidebar.py`.
+- **Details:** When a user uploads a record, the system automatically:
+  1. Saves the table to the persistent DuckDB store.
+  2. Triggers `generate_metadata.py` to profile the new schema live.
+  3. Re-indexes the Vector Search engine via `ingest_metadata.py`.
+- **User Experience:** Added a 3-step live status spinner (Saving → Profiling → Indexing) to provide visual trust during the ingestion process.
+
+### Step F: LLM Optimization (Transition to Groq)
+To achieve the "Speed" pillar for the hackathon, I transitioned the core reasoning engines from Gemini to Groq.
+- **What I built:** Standardized LLM connectors across `analyst.py`, `oracle.py`, and `orchestrator.py`.
+- **Details:** Swapped `gemini-2.5-flash` for `llama-3.1-8b-instant` via the Groq API.
+- **Stability:** Implemented absolute-path `.env` loading to ensure API keys are correctly resolved regardless of the Streamlit server's working directory, eliminating intermittent "Key Missing" errors.
+- **Result:** Reasoning latency dropped significantly, enabling a near-instant "Conversational Analytics" experience.
 
 ---
 ## Upcoming Agenda
-- Integration of the retrieved metadata directly into a query-building LLM agent.
-- Translating natural language directly to SQL utilizing the verified context.
+- Finalizing the Storyteller agent to translate raw dataframes into insightful banking narratives.
+- Final UI polish and deployment readiness.

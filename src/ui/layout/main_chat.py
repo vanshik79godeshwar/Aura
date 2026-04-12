@@ -39,22 +39,32 @@ def render_main_chat():
                 "next_action": ""
             }
 
-            status = st.status("Processing Request...", expanded=True)
+            import time
+            from src.ui.components.trust_trace import render_trust_trace
+
+            status = st.status("Thinking...", expanded=True)
+            reasoning_steps = []
             
             final_state = initial_state.copy()
             for output in aura_graph.stream(initial_state):
                 for node_name, state_update in output.items():
-                    status.write(f"✓ Agent **{node_name}** executed.")
+                    step_desc = f"Agent '{node_name}' executed. Status: {state_update.get('current_status', 'OK')}"
+                    reasoning_steps.append(step_desc)
+                    status.write(f"✓ {step_desc}")
                     final_state.update(state_update)
+                    time.sleep(0.5) # Artificial sleep for demo "Thinking" feel
             
             status.update(label="Analysis Complete", state="complete")
+
+            # Render the captured Trust Trace!
+            if reasoning_steps:
+                # Uses final_state raw data as the audit source
+                render_trust_trace(reasoning_steps, final_state.get("raw_data"))
             
         if final_state.get("final_response"):
-            st.markdown(final_state["final_response"])
+            from src.ui.components.message_cards import render_insight_card
+            render_insight_card(final_state["final_response"])
             
         if final_state.get("visual_output") is not None:
+            # We explicitly use Plotly here to ensure our theme renders.
             st.plotly_chart(final_state["visual_output"], use_container_width=True)
-            
-        if final_state.get("raw_data") is not None:
-            with st.expander("View Source Data"):
-                st.dataframe(final_state["raw_data"])
