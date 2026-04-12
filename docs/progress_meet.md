@@ -34,13 +34,20 @@ To facilitate instantaneous analytical queries during the Talk-to-Data flow, the
 - **Hackathon Pillar Alignment:** This is specifically geared for **Speed** (DuckDB OLAP engine) and **Trust** (Zero risk of state mutations via Sandbox Sanitization).
 
 ### Step D: The Sentry / SQL Auditor
-*(Timeline: Hour 11+)*
 
 To completely insulate the Talk-to-Data flow from AI Hallucinations (the single biggest reason AI fails in enterprise), we need an authoritative check *before* execution.
 - **What I built:** `src/agents/sql_sentry.py`. This is an LLM gating mechanism bridging the SQL generator and DuckDB execution.
 - **Details:** The Sentry extracts the exact schemas from `metadata_dictionary.json` and forms an isolated **Auditor System Prompt**. It looks at the AI's proposed SQL and rigorously cross-references every column logic step with the ground-truth map.
 - **Enforcement:** If an AI blindly attempts to run `SUM()` on a text column (e.g., `risk_profile`), the Sentry forces a JSON `FAIL` evaluation along with a `correction_hint` advising the main agent how to fix it immediately. 
 - **Hackathon Pillar Alignment:** This is the ultimate expression of **Trust**. We algorithmically prove to the judges that the SQL executing on our backend is 100% verifiably mapped to the true schema, preventing hallucinated queries and false data reports.
+
+### Transition to Production Mode (Dynamic CSV Auto-Loading)
+We are officially out of dummy-data development environment logic. The core stack now auto-discovers actual frontend data!
+- **Dynamic Semantics Tooling:** Created `src/core/generate_metadata.py`. This reads unknown CSV files via Pandas and infers column types, automatically generating vector descriptions straight into `metadata_dictionary.json`.
+- **DuckDB Bulk CSV Mount:** Removed mock arrays in `db_engine.py`. When initialized, it traverses `assets/*.csv` running native C++ memory mounts via `read_csv_auto`. This allows the SQL Sentry and queries absolute authority against any datasets user's throw at it moving forward natively!
+- **Value-Level Semantic Context:** Radically enhanced `generate_metadata.py`. Instead of just parsing column headers, it samples the first 50 rows of data. If it finds categorical text variables (e.g., `North`, `South` in the `region` column), it extracts and embeds those exact unique values straight into the Semantic Dictionary. This mathematically guarantees that if a user asks a hyper-specific question (e.g., "revenue in the South"), the AI automatically closes the 'Value Gap' and maps the word 'South' to the correct table contextually.
+- **Interactive Retrieval Interface:** Rewrote `src/agents/metadata_retriever.py` with an infinite loop interactive console to allow real-time manual testing of the vector search pipeline without relying on hardcoded scripts.
+- **Ghost Data Matrix Purge:** Redesigned ChromaDB ingestion to securely execute `.delete_collection()` before repopulating, permanently dropping the old NatWest mock data matrices and guaranteeing perfect sync with the uploaded asset folders.
 
 ---
 ## Upcoming Agenda

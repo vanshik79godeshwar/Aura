@@ -7,37 +7,33 @@ class DBEngine:
     def __init__(self):
         # In-memory database for extreme OLAP speed (Speed Pillar)
         self.conn = duckdb.connect(database=':memory:')
-        self._initialize_mock_data()
+        self._load_assets()
 
-    def _initialize_mock_data(self):
+    def _load_assets(self):
         """
-        Reads metadata_dictionary.json and creates empty/dummy tables.
-        This provides a sandbox environment until real CSVs are integrated.
+        Dynamically loads uploaded CSV files directly into the ultra-fast DuckDB in-process memory.
+        This provides a true queryable sandbox based on real dynamic files.
         """
-        metadata_file = os.path.join(os.path.dirname(__file__), "metadata_dictionary.json")
-        if not os.path.exists(metadata_file):
-            print("Warning: metadata_dictionary.json not found. Database is empty.")
+        import glob
+        assets_dir = os.path.join(os.path.dirname(__file__), "..", "..", "assets")
+        csv_files = glob.glob(os.path.join(assets_dir, "*.csv"))
+        
+        if not csv_files:
+            print("[DBEngine Warning] No CSV files found in assets/. Database is empty.")
             return
 
-        with open(metadata_file, "r") as f:
-            data = json.load(f)
-
-        for table_name, table_info in data.get("tables", {}).items():
-            columns = list(table_info.get("columns", {}).keys())
-            if not columns:
-                continue
+        for filepath in csv_files:
+            # Table name is the exact filename of the CSV (e.g. 'sales_data')
+            table_name = os.path.splitext(os.path.basename(filepath))[0]
             
-            # Default everything to VARCHAR for the mock setup
-            col_defs = ", ".join([f"{col} VARCHAR" for col in columns])
-            create_stmt = f"CREATE TABLE {table_name} ({col_defs});"
-            self.conn.execute(create_stmt)
-            
-            # Insert one dummy row per table to ensure queries return something verifiable
-            dummy_vals = ", ".join(["'mock_data'" for _ in columns])
-            insert_stmt = f"INSERT INTO {table_name} VALUES ({dummy_vals});"
-            self.conn.execute(insert_stmt)
-            
-        print("[DBEngine] In-Memory DuckDB Initialized with 10 Mock Tables.")
+            # DuckDB magically infers schema, data types, and bulk mounts the file rapidly using C++
+            try:
+                query = f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM read_csv_auto('{filepath}');"
+                self.conn.execute(query)
+            except Exception as e:
+                print(f"[DBEngine Error] Failed loading {table_name}: {e}")
+                
+        print(f"[DBEngine] Synchronized. Dynamically loaded {len(csv_files)} datasets into active memory.")
 
     def sanitize_query(self, sql_string: str) -> bool:
         """
@@ -73,16 +69,16 @@ class DBEngine:
 if __name__ == "__main__":
     engine = DBEngine()
     
-    # Test 1: Safe Query
+    # Test 1: Safe Query Execution ---
     print("\n--- Test 1: Safe Query Execution ---")
-    safe_sql = "SELECT * FROM transactions LIMIT 5;"
+    safe_sql = "SELECT * FROM sales_data LIMIT 5;"
     print("Executing:", safe_sql)
     df = engine.execute_query(safe_sql)
     print(df)
     
     # Test 2: Destructive Query
     print("\n--- Test 2: Unsafe Query Rejection ---")
-    unsafe_sql = "DROP TABLE transactions;"
+    unsafe_sql = "DROP TABLE sales_data;"
     print("Executing:", unsafe_sql)
     try:
         engine.execute_query(unsafe_sql)

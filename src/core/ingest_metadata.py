@@ -6,8 +6,15 @@ def ingest():
     db_path = os.path.join(os.path.dirname(__file__), "..", "..", ".chroma_db")
     client = chromadb.PersistentClient(path=db_path)
     
+    # Aggressively delete the old collection to destroy NatWest ghost data
+    try:
+        client.delete_collection(name="aura_metadata")
+        print("Purged old ghost matrix.")
+    except Exception:
+        pass
+        
     # The default embedding function is all-MiniLM-L6-v2 which is applied automatically
-    collection = client.get_or_create_collection(name="aura_metadata")
+    collection = client.create_collection(name="aura_metadata")
     
     metadata_file = os.path.join(os.path.dirname(__file__), "metadata_dictionary.json")
     with open(metadata_file, "r") as f:
