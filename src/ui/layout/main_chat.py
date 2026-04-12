@@ -41,8 +41,20 @@ def render_main_chat():
 
             status = st.status("Processing Request...", expanded=True)
             
+            final_state = initial_state.copy()
             for output in aura_graph.stream(initial_state):
                 for node_name, state_update in output.items():
                     status.write(f"✓ Agent **{node_name}** executed.")
+                    final_state.update(state_update)
             
             status.update(label="Analysis Complete", state="complete")
+            
+        if final_state.get("final_response"):
+            st.markdown(final_state["final_response"])
+            
+        if final_state.get("visual_output") is not None:
+            st.plotly_chart(final_state["visual_output"], use_container_width=True)
+            
+        if final_state.get("raw_data") is not None:
+            with st.expander("View Source Data"):
+                st.dataframe(final_state["raw_data"])
