@@ -9,18 +9,17 @@ Also dynamically hallucinates mock numerical arrays to test statistical math mod
 import os
 import statistics
 import json
+import pandas as pd
 from typing import Dict, Any, List
 from pydantic import BaseModel, Field
 from langchain_google_genai import ChatGoogleGenerativeAI
 from src.core.workspace import AgentWorkspace
+from src.core.db_engine import DBEngine
 
 llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
 
 class DynamicSQLPayload(BaseModel):
     sql_query: str = Field(description="The generated valid SQL string to fulfill the analytical intent.")
-    
-class MockDataPayload(BaseModel):
-    timeseries_array: List[float] = Field(description="A sequential numerical array representing historical data points over time or categories. Min 2 points.")
 
 # ---------------------------------------------------------
 # Dynamic LLM Database Connectors
@@ -38,33 +37,33 @@ def _generate_sql_query(metrics: list[str], analysis_type: str, relevant_tables:
     result = structured_llm.invoke(prompt)
     return result.sql_query
 
-def _fetch_mock_timeseries(analysis_type: str, sql: str) -> List[float]:
-    """Uses Gemini to hallucinate a realistic mathematical array so our formulas can run dynamically."""
-    structured_llm = llm.with_structured_output(MockDataPayload)
-    prompt = (
-        f"Our pipeline needs mock data since the DB isn't hooked up. "
-        f"We are running analysis type: '{analysis_type}' with SQL: '{sql}'\n"
-        f"Generate a realistic float array of at least 5 points representing the data. "
-        f"If 'forecast', make it logically trending. If 'rca', create a sudden drop at the end. "
-        f"If 'comparison', return exactly 2 points (e.g., this week vs last week)."
-    )
-    result = structured_llm.invoke(prompt)
-    return result.timeseries_array
-
 def _fetch_data_from_db(sql: str, analysis_type: str) -> dict:
-    """Executes the SQL query against the database to fetch raw data or falls back to LLM hallucination."""
-    db_path = os.getenv("DB_PATH")
-    if db_path and db_path != "your_db_path_here":
-        # Production execution logic...
-        pass 
+    """Executes the SQL query against DuckDB and extracts a pure mathematical array."""
+    engine = DBEngine()
+    
+    try:
+        # Executes SQL securely returning a Pandas DataFrame
+        df = engine.execute_query(sql)
         
-    # Dynamically generate fake datasets via Gemini to prevent static hardcoding
-    fake_array = _fetch_mock_timeseries(analysis_type, sql)
-    return {
-        "status": "success", 
-        "data": f"Dynamically hallucinated tabular data for query: {sql}",
-        "timeseries_array": fake_array
-    }
+        # Heuristically extract the core tracking float column out of the Pandas result matrix
+        numeric_cols = df.select_dtypes(include=['number']).columns
+        if not numeric_cols.empty:
+            timeseries_array = df[numeric_cols[0]].dropna().tolist()
+        else:
+            timeseries_array = [0.0] * 5 # Fallback to prevent math formulas crashing
+            
+        return {
+            "status": "success", 
+            "data": df.to_json(orient='records'),
+            "timeseries_array": timeseries_array
+        }
+    except Exception as e:
+        print(f"Agent [Analyst] DB Error: {e}")
+        return {
+            "status": "error", 
+            "data": "[]",
+            "timeseries_array": [0.0] * 5
+        }
 
 # ---------------------------------------------------------
 # Advanced Analytics (Statistics & Math Hub)
