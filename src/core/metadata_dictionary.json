@@ -1,0 +1,41 @@
+{
+  "tables": {
+    "transactions": {
+      "description": "A record of all financial transactions made by NatWest customers.",
+      "columns": {
+        "tx_id": {
+          "description": "Unique identifier for the transaction."
+        },
+        "account_id": {
+          "description": "The unique identifier of the bank account from which the transaction was made."
+        },
+        "amount": {
+          "description": "Transaction amount in GBP. Positive values represent credits, negative values represent debits."
+        },
+        "tx_date": {
+          "description": "The date and time when the transaction was executed, in UTC."
+        },
+        "merchant_name": {
+          "description": "The name of the business or entity where the transaction occurred. Can be null for internal transfers."
+        }
+      }
+    },
+    "accounts": {
+      "description": "Details of customer bank accounts including balances and account types.",
+      "columns": {
+        "account_id": {
+          "description": "Unique identifier for the bank account."
+        },
+        "customer_id": {
+          "description": "Unique identifier for the customer who owns the account."
+        },
+        "account_type": {
+          "description": "The type of the account. E.g., 'Checking', 'Savings', 'Credit Card'."
+        },
+        "current_balance": {
+          "description": "The current available balance in the account in GBP."
+        }
+      }
+    }
+  }
+}
