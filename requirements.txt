@@ -1,8 +1,9 @@
-streamlit
-langchain
-langchain-google-genai
-langgraph
-python-dotenv
-pandas
-numpy
 chromadb
+sentence-transformers
+python-dotenv
+streamlit
+pandas
+plotly
+altair
+langgraph
+langchain-google-genai
