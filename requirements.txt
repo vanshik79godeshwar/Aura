@@ -1,4 +1,5 @@
-# Add your project requirements here
-chromadb
-sentence-transformers
+streamlit
+pandas
 python-dotenv
+plotly
+altair

@@ -1,16 +1,5 @@
 # 🚀 Progress: Vanshik
-- Role: Lead AI Architect
-- Current Task: Initializing Agent Logic
-- Status: In Progress
-
-## Completed Features
-- **Shared Workspace Implemented**: Defined `AgentWorkspace` typed dictionary in `src/core/workspace.py` including tracking fields like `user_query`, `sql_query`, `raw_data`, `error_logs`, and `retry_count`.
-- **Orchestrator Designed**: Created the Master Agent routing skeleton in `src/agents/orchestrator.py` mapping out dummy worker nodes (semantic layer, analyst, sentry, storyteller). Included conditional edge routing logic providing self-correction limits.
-
-## Immediate Bottlenecks
-- Waiting for the remaining team to implement actual internal algorithms for worker agents (analysts, sentry, etc.).
-- External dependencies needed if compiling via LangGraph (LangGraph/LangChain stack needs installation).
-
-## Next Steps
-- Begin integrating a database and giving actual database schema context to the `call_analyst` node.
-- Expand prompt engineering for both `call_semantic_layer` and `call_storyteller`.
+- **Role:** Lead Architect & Orchestration
+- **Completed Features:** Implemented LangGraph StateGraph, integrated Gemini 1.5 Flash for the planning node, and created main.py execution loop.
+- **Known Bottlenecks:** Worker nodes (lexicon, analyst, etc.) are currently dummy functions. Awaiting team integration.
+- **Next Steps:** Review console output of main.py to verify state mutation across edges, then assist team in plugging in worker agents.

@@ -1,84 +1,63 @@
-from typing import Literal
+from langgraph.graph import StateGraph, END
+from langchain_google_genai import ChatGoogleGenerativeAI
 from src.core.workspace import AgentWorkspace
 
-# ---------------------------------------------------------
-# Worker Agent Dummy Nodes
-# ---------------------------------------------------------
+# Initialize the Gemini LLM
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
 
-def call_semantic_layer(state: AgentWorkspace) -> dict:
-    """Extracts intention and metrics from the user query."""
-    print("Agent [Semantic Layer]: Identifying metrics...")
-    return {"current_status": "semantic_layer_complete"}
-
-def call_analyst(state: AgentWorkspace) -> dict:
-    """Generates SQL and fetches data."""
-    print("Agent [Analyst]: Generating SQL and fetching data...")
-    # In a real implementation we would increment retry count if an error happens
-    return {"current_status": "analyst_complete"}
-
-def call_sentry(state: AgentWorkspace) -> dict:
-    """Validates data and queries for correctness and security."""
-    print("Agent [Sentry]: Validating execution...")
-    return {"current_status": "sentry_complete"}
-
-def call_storyteller(state: AgentWorkspace) -> dict:
-    """Crafts the final natural language response based on data."""
-    print("Agent [Storyteller]: Crafting response...")
-    return {"current_status": "storyteller_complete"}
-
-# ---------------------------------------------------------
-# Conditional Routing Logic
-# ---------------------------------------------------------
-
-MAX_RETRIES = 3
-
-def route_after_analyst(state: AgentWorkspace) -> Literal["call_analyst", "call_storyteller"]:
-    """
-    If call_analyst populates error_logs, route back to call_analyst 
-    for self-correction up to MAX_RETRIES.
-    Otherwise, route to call_storyteller.
-    """
-    errors = state.get("error_logs", [])
-    retries = state.get("retry_count", 0)
-
-    if errors and retries < MAX_RETRIES:
-        print(f"Orchestrator: Error detected. Routing to Analyst for self-correction. (Retry {retries + 1}/{MAX_RETRIES})")
-        return "call_analyst"
+def plan_execution(state: AgentWorkspace) -> dict:
+    """Read user_query, extract entities, update identified_metrics, and decide next step."""
+    query = state.get("user_query", "")
     
-    print("Orchestrator: Query successful or max retries hit. Routing to Storyteller.")
-    return "call_storyteller"
+    # Prompt the LLM to extract metrics
+    prompt = f"Extract key metrics or entities from this user query as a comma-separated list: {query}"
+    response = llm.invoke(prompt)
+    
+    metrics_text = response.content if hasattr(response, 'content') else str(response)
+    metrics = [m.strip() for m in metrics_text.split(",") if m.strip()]
+    
+    return {
+        "identified_metrics": metrics,
+        "current_status": "[plan_execution] executed"
+    }
 
-# ---------------------------------------------------------
-# Sample State Graph Configuration (e.g. for LangGraph)
-# ---------------------------------------------------------
-"""
-from langgraph.graph import StateGraph, END
+def lexicon(state: AgentWorkspace) -> dict:
+    error_logs = list(state.get("error_logs", []))
+    error_logs.append("[lexicon] executed")
+    return {"current_status": "[lexicon] executed", "error_logs": error_logs}
 
-# Initialize the Master Agent routing logic
+def analyst(state: AgentWorkspace) -> dict:
+    error_logs = list(state.get("error_logs", []))
+    error_logs.append("[analyst] executed")
+    return {"current_status": "[analyst] executed", "error_logs": error_logs}
+
+def sentry(state: AgentWorkspace) -> dict:
+    error_logs = list(state.get("error_logs", []))
+    error_logs.append("[sentry] executed")
+    return {"current_status": "[sentry] executed", "error_logs": error_logs}
+
+def storyteller(state: AgentWorkspace) -> dict:
+    error_logs = list(state.get("error_logs", []))
+    error_logs.append("[storyteller] executed")
+    return {"current_status": "[storyteller] executed", "error_logs": error_logs}
+
+# Define and compile the state graph
 workflow = StateGraph(AgentWorkspace)
 
-# Add nodes
-workflow.add_node("semantic_layer", call_semantic_layer)
-workflow.add_node("analyst", call_analyst)
-workflow.add_node("sentry", call_sentry)
-workflow.add_node("storyteller", call_storyteller)
+# Add strict nodes
+workflow.add_node("plan_execution", plan_execution)
+workflow.add_node("lexicon", lexicon)
+workflow.add_node("analyst", analyst)
+workflow.add_node("sentry", sentry)
+workflow.add_node("storyteller", storyteller)
 
-# Define routing
-workflow.set_entry_point("semantic_layer")
-workflow.add_edge("semantic_layer", "analyst")
-
-workflow.add_conditional_edges(
-    "analyst",
-    route_after_analyst,
-    {
-        "call_analyst": "analyst",
-        "call_storyteller": "storyteller" 
-        # Alternatively, route to sentry first before storyteller
-    }
-)
-
+# Define edges and conditional routing logic (linear path for now)
+workflow.set_entry_point("plan_execution")
+workflow.add_edge("plan_execution", "lexicon")
+workflow.add_edge("lexicon", "analyst")
+workflow.add_edge("analyst", "sentry")
+workflow.add_edge("sentry", "storyteller")
 workflow.add_edge("storyteller", END)
 
-# compile to create the master orchestrator application
+# Compile into app variable
 app = workflow.compile()
-"""
