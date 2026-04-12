@@ -1,4 +1,3 @@
-# Add your project requirements here
 chromadb
 sentence-transformers
 python-dotenv
@@ -7,3 +6,9 @@ pandas
 plotly
 altair
 duckdb
+
+langgraph
+
+langchain-google-genai
+pydantic
+
