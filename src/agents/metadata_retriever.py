@@ -32,16 +32,33 @@ class MetadataRetriever:
         return []
 
 if __name__ == "__main__":
-    # A small manual verification block (Speed and Clarity check)
+    # Interactive Console for Contextual Metadata Retrieval
+    print("\n" + "="*50)
+    print("🚀 AURA: CONTEXTUAL METADATA RETRIEVER")
+    print("Type a natural language question to see which internal tables")
+    print("the Vector Database mathematically matches to your intent.")
+    print("Type 'exit' or 'quit' to stop.")
+    print("="*50 + "\n")
+    
     retriever = MetadataRetriever()
     
-    test_queries = [
-        "How much did the customer spend at Starbucks?",
-        "Show me all home loans over 100k",
-        "What is my current balance?"
-    ]
-    
-    for query in test_queries:
-        print(f"\nUser Query: '{query}'")
-        tables = retriever.get_relevant_tables(query)
-        print(f"-> Selected Tables: {tables}")
+    while True:
+        try:
+            query = input("\n[Aura User] ➤ ")
+            if query.strip().lower() in ['exit', 'quit']:
+                print("\n[System] Exiting contextual search...")
+                break
+            
+            if not query.strip():
+                continue
+                
+            # Calling the retrieval engine to pull Top 3 relevant files
+            tables = retriever.get_relevant_tables(query, top_k=3)
+            
+            print("\n[Vector Search Engine] -> Top Relevant Tables Found:")
+            for idx, table in enumerate(tables, 1):
+                print(f"   {idx}. {table}")
+                
+        except KeyboardInterrupt:
+            print("\n[System] Exiting contextual search...")
+            break
