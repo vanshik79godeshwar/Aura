@@ -3,11 +3,15 @@ Main entry point for the Project Aura UI.
 Why it exists: To provide the top-level Streamlit configuration and orchestration 
 for the Talk-to-Data interface, prioritizing Clarity, Trust, and Speed for NatWest Hackathon users.
 """
-import streamlit as st
+
 import sys
 import os
 from dotenv import load_dotenv
 
+# 1. CRITICAL: Load environment variables BEFORE anything else
+load_dotenv()
+
+import streamlit as st
 # Ensure the root project directory is in the Python path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
 if project_root not in sys.path:
