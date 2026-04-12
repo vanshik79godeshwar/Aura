@@ -1,20 +1,12 @@
 from typing import Literal
 from src.core.workspace import AgentWorkspace
 
-# ---------------------------------------------------------
-# Worker Agent Dummy Nodes
-# ---------------------------------------------------------
+from src.agents.oracle import call_oracle as call_semantic_layer
+from src.agents.analyst import call_analyst
 
-def call_semantic_layer(state: AgentWorkspace) -> dict:
-    """Extracts intention and metrics from the user query."""
-    print("Agent [Semantic Layer]: Identifying metrics...")
-    return {"current_status": "semantic_layer_complete"}
-
-def call_analyst(state: AgentWorkspace) -> dict:
-    """Generates SQL and fetches data."""
-    print("Agent [Analyst]: Generating SQL and fetching data...")
-    # In a real implementation we would increment retry count if an error happens
-    return {"current_status": "analyst_complete"}
+# ---------------------------------------------------------
+# Worker Agent Dummy Nodes (Sentry & Storyteller)
+# ---------------------------------------------------------
 
 def call_sentry(state: AgentWorkspace) -> dict:
     """Validates data and queries for correctness and security."""
