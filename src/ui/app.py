@@ -36,7 +36,44 @@ def main():
         initial_sidebar_state="expanded"
     )
     
-    st.title("✨ Project Aura: Talk-to-Data")
+    st.title("Aura Intelligence")
+    st.caption("Powered by NatWest")
+    
+    # Task 3: Modern Layout Custom CSS (Inter font, rounded edges, shadows)
+    st.markdown("""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+        html, body, [class*="st-"] {
+            font-family: 'Inter', sans-serif;
+        }
+        .stChatInputContainer {
+            border-radius: 12px;
+            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05);
+            border: 1px solid #30363d !important;
+            background-color: #0d1117 !important;
+        }
+        .stChatMessage {
+            border-radius: 10px;
+            box-shadow: 0px 2px 6px rgba(0,0,0,0.03);
+            margin-bottom: 12px;
+            border: 1px solid #30363d !important;
+            background-color: #0d1117 !important;
+        }
+        [data-testid="stMetric"] {
+            border: 1px solid #30363d !important;
+            background-color: #0d1117 !important;
+            border-radius: 10px;
+            padding: 10px 20px;
+        }
+        [data-testid="stMetricValue"] {
+            font-size: 3rem !important;
+            font-weight: bold;
+        }
+        [data-testid="stSidebar"] {
+            box-shadow: 2px 0px 10px rgba(0,0,0,0.05);
+        }
+        </style>
+    """, unsafe_allow_html=True)
     
     # Render the layouts
     render_sidebar()

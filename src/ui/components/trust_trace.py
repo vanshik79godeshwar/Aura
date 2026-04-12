@@ -7,17 +7,10 @@ import streamlit as st
 import pandas as pd
 from typing import List, Optional
 
-def render_trust_trace(reasoning_steps: List[str], source_data: Optional[pd.DataFrame] = None):
-    """
-    Renders an expandable section detailing how the AI reached its conclusion.
-    Why it exists: Provides an auditable trace for the user while keeping the default view Minimal.
-    """
-    with st.expander("🔍 Trust Trace: How I got this answer"):
-        st.markdown("**Reasoning Steps:**")
-        for i, step in enumerate(reasoning_steps, 1):
-            st.markdown(f"{i}. {step}")
-            
-        if source_data is not None and not source_data.empty:
-            st.markdown("**Source Data Snippet:**")
-            st.dataframe(source_data.head())
-            st.caption("Showing the top 5 relevant rows used to generate the answer.")
+def render_trust_trace(steps, source_data=None):
+    # Pure DataFrame constraint: Unwraps safely without AttributeError crashes!
+    is_valid_df = isinstance(source_data, pd.DataFrame) and not source_data.empty
+
+    with st.expander("🔍 Trust Trace: How I got this answer", expanded=True):
+        for step in steps:
+            st.markdown(f"**{step}**")

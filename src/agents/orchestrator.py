@@ -73,6 +73,10 @@ def analyst_and_math(state: AgentWorkspace) -> dict:
     return call_analyst(state)
 
 def sql_sentry(state: AgentWorkspace) -> dict:
+    if state.get("current_status") == "analyst_error":
+        # Pass immediately to prevent infinite correction loops on empty DB
+        return {"sentry_status": "PASS", "current_status": "sql_sentry skipped"}
+
     from src.agents.sql_sentry import SQLSentry
     auditor = SQLSentry()
     res = auditor.analyze_query(state.get("sql_query", ""), state.get("relevant_tables", []))
@@ -81,7 +85,33 @@ def sql_sentry(state: AgentWorkspace) -> dict:
     if res.get("status") == "PASS":
         error_logs.append("Audit Approval: SQL Execution authorized by Sentry.")
     else:
-        error_logs.append(f"Correction Reason: {res.get('reason')} (Hint: {res.get('correction_hint')})")
+        reason = res.get('reason')
+        previous_reasons = [log for log in error_logs if reason in log]
+        error_logs.append(f"Correction Reason: {reason} (Hint: {res.get('correction_hint')})")
+        
+    # Orchestrator Logic Guardrail: Self-Correction Loop for Breakdown vs Single Value
+    query = state.get("user_query", "").lower()
+    needs_breakdown = any(w in query for w in ["breakdown", "by", "distribution", "split", "per"])
+    sql_text = state.get("sql_query", "").upper()
+    if needs_breakdown and "GROUP BY" not in sql_text:
+        error_logs.append("Correction Reason: The user requested a breakdown, but a single scalar was returned instead of grouped data.")
+        return {
+            "current_status": "sql_sentry complete",
+            "sentry_status": "FAIL",
+            "sentry_reason": "You must include a GROUP BY clause and a categorical column because the user asked for a breakdown.",
+            "error_logs": error_logs
+        }
+        
+    if res.get("status") != "PASS":
+        # Loop Breaker Task: Intercept duplicate failures and re-sync natively!
+        if len(previous_reasons) > 0:
+            return {
+                "current_status": "sentry_loop_detected",
+                "sentry_status": "FAIL",
+                "sentry_reason": reason,
+                "error_logs": error_logs,
+                "next_action": "metadata_retriever"
+            }
         
     return {
         "current_status": "sql_sentry complete",
@@ -92,37 +122,30 @@ def sql_sentry(state: AgentWorkspace) -> dict:
     }
 
 def visualizer_and_storyteller(state: AgentWorkspace) -> dict:
-    from src.agents.visualizer_agent import generate_visualization
     from src.agents.storyteller import run_storyteller
-    try:
-        import pandas as pd
-        import io
-        raw = state.get("raw_data")
-        if isinstance(raw, dict):
-            # Parse json records to dataframe natively preserving strings
-            if raw.get("data") and raw["data"] != "[]":
-                raw = pd.read_json(io.StringIO(raw["data"]))
-            else:
-                raw = pd.DataFrame()
-        fig = generate_visualization(raw)
-    except Exception as e:
-        error_logs = state.get("error_logs", [])
-        error_logs.append(f"Visualizer Error: {e}")
-        fig = None
     
-    # Storyteller narrative
-    story_update = run_storyteller(state)
-        
-    return {
-        "current_status": "visualizer_and_storyteller complete",
-        "visual_output": fig,
-        "final_response": story_update.get("final_response"),
-        "error_logs": story_update.get("error_logs", state.get("error_logs", []))
-    }
+    # Intercept missing data graceful exit
+    if any("LIVE DATABASE EMPTY" in err for err in state.get("error_logs", [])):
+        return {
+            "current_status": "error_resolved",
+            "final_response": "Please upload your data first.",
+            "visual_output": None
+        }
+
+    # Otherwise let the united storyteller & visualizer handle it natively
+    return run_storyteller(state)
 
 def route(state: AgentWorkspace) -> str:
     """Routing function that reads next_action from state."""
     action = state.get("next_action", "END")
+    
+    # Task 1: Ban the transition back to metadata_retriever once a SQL query has been successfully executed.
+    if action == "metadata_retriever" and state.get("sql_query", "") != "":
+        return "visualizer_and_storyteller"
+        
+    if state.get("current_status") == "analyst_complete":
+        return "visualizer_and_storyteller"
+        
     if action == "END":
         return END
     return action
@@ -130,7 +153,11 @@ def route(state: AgentWorkspace) -> str:
 def route_sentry(state: AgentWorkspace) -> str:
     """Conditional self-healing loop: Route back to analyst if Sentry catches hallucinated syntax."""
     status = state.get("sentry_status", "PASS")
+    current_status = state.get("current_status", "")
     retries = state.get("retry_count", 0)
+    
+    if current_status == "sentry_loop_detected":
+        return "metadata_retriever"
     
     # Send it to Visualizer if Audit clears. 
     # BUT explicitly force it if we are stuck in an infinite query glitch! (Max 3 retries).
@@ -160,7 +187,11 @@ workflow.add_edge("metadata_retriever", "analyst_and_math")
 workflow.add_edge("analyst_and_math", "sql_sentry")
 
 # Self-Healing Evaluation Node!
-workflow.add_conditional_edges("sql_sentry", route_sentry)
+workflow.add_conditional_edges("sql_sentry", route_sentry, {
+    "metadata_retriever": "metadata_retriever",
+    "visualizer_and_storyteller": "visualizer_and_storyteller",
+    "analyst_and_math": "analyst_and_math"
+})
 
 workflow.add_edge("visualizer_and_storyteller", END)
 

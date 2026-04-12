@@ -50,10 +50,35 @@ def render_sidebar():
     with st.sidebar:
 
         st.title("Aura Settings")
-        st.markdown("We keep things simple. Just upload your data and start talking.")
         
-        uploaded_files = st.file_uploader("Data Source", type=["csv", "xlsx"], label_visibility="hidden", accept_multiple_files=True)
+        with st.container(border=True):
+            uploaded_files = st.file_uploader("Data Source", type=["csv", "xlsx"], label_visibility="hidden", accept_multiple_files=True)
         
+        st.markdown("---")
+        
+        if st.button("🧹 Clear Session", use_container_width=True):
+            st.session_state.clear()
+            st.session_state["retry_count"] = 0
+            
+            try:
+                from src.core.db_engine import DBEngine
+                engine = DBEngine()
+                if hasattr(engine, 'conn') and engine.conn:
+                    engine.conn.close()
+                DBEngine._instance = None
+            except Exception:
+                pass
+                
+            import shutil
+            if os.path.exists(_DB_PATH):
+                try: os.remove(_DB_PATH)
+                except: pass
+            chroma_path = os.path.join(_PROJECT_ROOT, ".chroma_db")
+            if os.path.exists(chroma_path):
+                try: shutil.rmtree(chroma_path)
+                except: pass
+            st.rerun()
+            
         st.markdown("---")
 
         if uploaded_files:

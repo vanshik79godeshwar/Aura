@@ -8,14 +8,20 @@ _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 _DB_PATH = os.path.join(_PROJECT_ROOT, "aura.db")
 
 class DBEngine:
-    def __init__(self):
-        # Persistent DuckDB — tables survive across restarts (Speed + Trust Pillar)
-        # This connects to the DB file where your teammates' UI uploads are stored.
-        self.conn = duckdb.connect(database=_DB_PATH)
-        print(f"[DBEngine] Connected to persistent store: {_DB_PATH}")
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            # Persistent DuckDB — tables survive across restarts (Speed + Trust Pillar)
+            cls._instance.conn = duckdb.connect(database=_DB_PATH)
+            print(f"[DBEngine] Connected to persistent store: {_DB_PATH}")
+            cls._instance._load_legacy_assets()
+        return cls._instance
         
-        # Load legacy assets ONLY if they aren't already in the persistent store
-        self._load_legacy_assets()
+    def __init__(self):
+        # Initialization logic is strictly managed by __new__ to prevent locking files
+        pass
 
     def _load_legacy_assets(self):
         """
@@ -41,8 +47,12 @@ class DBEngine:
 
     def list_tables(self) -> list[str]:
         """Returns all table names currently registered in the DuckDB instance."""
-        rows = self.conn.execute("SHOW TABLES").fetchall()
-        return [row[0] for row in rows]
+        cursor = self.conn.cursor()
+        try:
+            rows = cursor.execute("SHOW TABLES").fetchall()
+            return [row[0] for row in rows]
+        finally:
+            cursor.close()
 
     def sanitize_query(self, sql_string: str) -> bool:
         """
@@ -68,7 +78,12 @@ class DBEngine:
         """
         self.sanitize_query(sql_string)
         # Returns as pandas dataframe utilizing DuckDB's fast C++ conversion
-        return self.conn.execute(sql_string).df()
+        # Uses explicit cursor to prevent threading database-locks!
+        cursor = self.conn.cursor()
+        try:
+            return cursor.execute(sql_string).df()
+        finally:
+            cursor.close()
 
 if __name__ == "__main__":
     engine = DBEngine()

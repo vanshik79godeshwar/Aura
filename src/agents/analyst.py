@@ -71,22 +71,23 @@ def _build_fallback_sql(metrics: list[str], analysis_type: str, relevant_tables:
     else:
         return f"SELECT {chosen_col} FROM {chosen_table} LIMIT 10;"
 
-def _generate_sql_query(metrics: list[str], analysis_type: str, relevant_tables: list[str], sentry_reason: str = None) -> str:
+def _generate_sql_query(metrics: list[str], analysis_type: str, relevant_tables: list[str], sentry_reason: str = None, live_tables: list[str] = None, schema_types_context: str = "") -> str:
     """Uses Groq LLM to dynamically formulate the database table querying logic using verified context.
     Falls back to a rule-based generator if the API quota is exhausted.
     """
     import json
     metadata_path = os.path.join(os.path.dirname(__file__), "..", "core", "metadata_dictionary.json")
-    schema_context = ""
+    schema_intents = ""
     try:
         with open(metadata_path) as f:
             meta = json.load(f)
         for table in relevant_tables:
             if table in meta.get("tables", {}):
-                cols = list(meta["tables"][table].get("columns", {}).keys())
-                schema_context += f"Table '{table}' has columns: {cols}\n"
+                cols_dict = meta["tables"][table].get("columns", {})
+                cols = [f"{c} (Description: {info.get('description', '')})" for c, info in cols_dict.items()]
+                schema_intents += f"Table '{table}' Column Intents: {cols}\n"
     except Exception:
-        schema_context = "(Schema unavailable, use logical assumptions)"
+        schema_intents = "(Schema unavailable, use logical assumptions)"
 
     try:
         structured_llm = llm.with_structured_output(DynamicSQLPayload)
@@ -95,13 +96,26 @@ def _generate_sql_query(metrics: list[str], analysis_type: str, relevant_tables:
         prompt = (
             f"You are a Senior SQL Analyst. A user wants to do a '{analysis_type}' analysis.\n"
             f"The relevant metrics are: {metrics}\n"
-            f"The verified database tables you MUST query from are: {relevant_tables}\n"
-            f"transactions table columns: tx_id, account_id, amount, tx_date, merchant_name.\n"
-            f"Column Reference:\n{schema_context}\n"
+            f"The verified database tables context is: {relevant_tables}\n"
+            f"CRITICAL RULES:\n"
+            f"1. The ONLY tables presently alive in the persistent database are: {live_tables}\n"
+            f"2. You MUST map the user's query ONLY to these alive tables.\n"
+            f"3. transactions table columns: tx_id, account_id, amount, tx_date, merchant_name.\n"
+            f"Column Intents (Read Descriptions to detect currency/values stored as text):\n{schema_intents}\n"
+            f"Actual Column Types (From DB):\n{schema_types_context}\n"
             f"Write a standard, logical SQL query to fetch data that supports this. Do not guess table names or column names outside of the verified ones!\n"
-            f"You MUST ONLY use the column names listed in the verified schema. If you use table1 or id, the Sentry will block you.\n"
-            f"If forecast/comparison, GROUP BY a date-like column. If rca, check for anomalies."
-            f"{feedback}"
+            f"You are a compiler. You can ONLY use columns returned by the PRAGMA check. Any other column name will cause a system crash.\n"
+            f"CRITICAL GOVERNANCE RULES:\n"
+            f"1. **Table Isolation**: DO NOT attempt to JOIN tables unless they share a verified key (e.g., account_id). Jeśli query spans multiple tables ({live_tables}), prioritize the one most relevant to user intent.\n"
+            f"DECISION TREE (Type Casting):\n"
+            f"- **Type A (Numeric)**: If column is INT, BIGINT, DOUBLE, or FLOAT, use the raw column. PROHIBIT REGEXP_REPLACE or TRY_CAST.\n"
+            f"- **Type B (Dirty String)**: If column is VARCHAR AND semantic intent is currency/price, MANDATE TRY_CAST(REGEXP_REPLACE(col, '[^0-9.]', '', 'g') AS FLOAT).\n"
+            f"CONSTRAINT ENFORCEMENT: Explicitly map 'tx_date' for the transactions table. Ban the use of the word 'date'.\n"
+            f"**Aggregation-First Mandate**: NEVER fetch raw rows for mathematical questions. Perform all SUM, AVG, and COUNT inside the SQL query. This is a non-negotiable performance requirement.\n"
+            f"**Breakdown Mandate**: Strict Rule: If the prompt contains 'breakdown', 'by', 'distribution', 'per', or 'split', you are FORBIDDEN from returning a single row. Mandatory Action: You must identify a categorical column (e.g., region, category, status) from the DESCRIBE metadata and include it in both the SELECT and GROUP BY clauses. Fallback: If you are unsure which category to use, pick the one with the highest semantic relevance to 'Business Units' (like region). Correction: Your previous query SELECT SUM(revenue) FROM sales_data was INCORRECT. The correct response is SELECT region, SUM(revenue) FROM sales_data GROUP BY region.\n"
+            f"User Intent: {analysis_type} on {metrics}\n"
+            f"{feedback}\n"
+            f"Final SQL Query:"
         )
         result = structured_llm.invoke(prompt)
         return result.sql_query
@@ -190,12 +204,35 @@ def call_analyst(state: AgentWorkspace) -> Dict[str, Any]:
     relevant_tables = state.get("relevant_tables", [])
     sentry_reason = state.get("sentry_reason", "")
     
+    engine = DBEngine()
+    live_tables = engine.list_tables()
+    
+    if not live_tables:
+        error_logs = state.get("error_logs", [])
+        error_logs.append("LIVE DATABASE EMPTY: No uploaded files found in persistent aura.db.")
+        return {
+            "error_logs": error_logs,
+            "current_status": "analyst_error",
+            "sql_query": ""
+        }
+    
+    # Fetch exact PRAGMA schema for all relevant_tables before generating SQL
+    schema_types_context = ""
+    for table in live_tables:
+        if table in relevant_tables:
+            try:
+                pragma_df = engine.execute_query(f"PRAGMA table_info('{table}');")
+                types = ", ".join(pragma_df.apply(lambda row: f"{row['name']}: {row['type']}", axis=1).tolist())
+                schema_types_context += f"Table '{table}' PRAGMA: {types}\n"
+            except Exception:
+                pass
+                
     # Increment retry loop
     retry_count = state.get("retry_count", 0) + 1
     
     print(f"Agent [Analyst]: Calling Groq to dynamically generate SQL & fetch data... (Retry {retry_count})")
     try:
-        sql = _generate_sql_query(metrics, analysis_type, relevant_tables, sentry_reason=sentry_reason if retry_count > 1 else None)
+        sql = _generate_sql_query(metrics, analysis_type, relevant_tables, sentry_reason=sentry_reason if retry_count > 1 else None, live_tables=live_tables, schema_types_context=schema_types_context)
         print(f"Agent [Analyst]: Groq Engineered SQL -> {sql}")
         
         data = _fetch_data_from_db(sql, analysis_type)
