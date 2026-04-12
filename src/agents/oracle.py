@@ -10,7 +10,13 @@ user intent instead of relying on rigid hardcoded rules.
 import os
 from typing import Dict, Any, Literal
 from pydantic import BaseModel, Field
-from langchain_google_genai import ChatGoogleGenerativeAI
+from dotenv import load_dotenv
+
+# Resolve .env from project root regardless of working directory
+_ENV_PATH = os.path.join(os.path.dirname(__file__), "..", "..", ".env")
+load_dotenv(dotenv_path=os.path.abspath(_ENV_PATH))
+
+from langchain_groq import ChatGroq
 from src.core.workspace import AgentWorkspace
 from src.agents.metadata_retriever import MetadataRetriever
 
@@ -51,9 +57,8 @@ def _classify_intent_locally(query: str) -> OracleExtraction:
     return OracleExtraction(identified_metrics=metrics, analysis_type=analysis_type)
 
 def analyze_intent(query: str) -> OracleExtraction:
-    """Uses a dynamic LLM via LangChain to extract semantic features."""
-    # Instantiating the Gemini model wrapper 
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+    """Uses Groq LLM to extract semantic features from user query."""
+    llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0, max_retries=3)
     structured_llm = llm.with_structured_output(OracleExtraction)
     
     prompt = (

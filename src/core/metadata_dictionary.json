@@ -1,7 +1,7 @@
 {
   "tables": {
     "amazon": {
-      "description": "Auto-generated schema for dataset amazon.",
+      "description": "Auto-generated schema for dataset 'amazon'.",
       "columns": {
         "product_id": {
           "description": "Auto-detected column 'product_id' representing object data. Example values: B07JW9H4J1, B098NS6PVG, B096MSW6CT."
@@ -22,7 +22,7 @@
           "description": "Auto-detected column 'discount_percentage' representing object data. Example values: 64%, 43%, 90%."
         },
         "rating": {
-          "description": "Auto-detected column 'rating' representing float64 data."
+          "description": "Auto-detected column 'rating' representing object data. Example values: 4.2, 4.0, 3.9."
         },
         "rating_count": {
           "description": "Auto-detected column 'rating_count' representing object data. Example values: 24,269, 43,994, 7,928."
@@ -53,43 +53,28 @@
         }
       }
     },
-    "mock_transactions": {
-      "description": "Auto-generated schema for dataset mock_transactions.",
+    "large_sales_dataset": {
+      "description": "Auto-generated schema for dataset 'large_sales_dataset'.",
       "columns": {
-        "tx_id": {
-          "description": "Auto-detected column 'tx_id' representing object data. Example values: T001, T002, T003."
+        "Transaction_ID": {
+          "description": "Auto-detected column 'Transaction_ID' representing int64 data."
         },
-        "account_id": {
-          "description": "Auto-detected column 'account_id' representing object data. Example values: A101, A102, A103."
+        "Category": {
+          "description": "Auto-detected column 'Category' representing object data. Example values: Furniture, Clothing, Books."
         },
-        "amount": {
-          "description": "Auto-detected column 'amount' representing float64 data."
-        },
-        "tx_date": {
-          "description": "Auto-detected column 'tx_date' representing object data. Example values: 2024-02-01, 2024-02-02, 2024-02-03."
-        },
-        "merchant_name": {
-          "description": "Auto-detected column 'merchant_name' representing object data. Example values: Starbucks, Tesco, Salary Deposit."
+        "Amount": {
+          "description": "Auto-detected column 'Amount' representing float64 data."
         }
       }
     },
-    "sales_data": {
-      "description": "Auto-generated schema for dataset sales_data.",
+    "test_sales": {
+      "description": "Auto-generated schema for dataset 'test_sales'.",
       "columns": {
-        "date": {
-          "description": "Auto-detected column 'date' representing object data. Example values: 2024-01-01, 2024-02-01, 2024-03-01."
-        },
         "region": {
-          "description": "Auto-detected column 'region' representing object data. Example values: North, South."
+          "description": "Auto-detected column 'region' representing object data. Example values: North, South, East."
         },
-        "category": {
-          "description": "Auto-detected column 'category' representing object data. Example values: Electronics, Clothing."
-        },
-        "revenue": {
-          "description": "Auto-detected column 'revenue' representing int64 data."
-        },
-        "ad_spend": {
-          "description": "Auto-detected column 'ad_spend' representing int64 data."
+        "sales": {
+          "description": "Auto-detected column 'sales' representing int64 data."
         }
       }
     }

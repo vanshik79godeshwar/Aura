@@ -12,11 +12,17 @@ import json
 import pandas as pd
 from typing import Dict, Any, List
 from pydantic import BaseModel, Field
-from langchain_google_genai import ChatGoogleGenerativeAI
+from dotenv import load_dotenv
+
+# Resolve .env from the project root regardless of Streamlit's working directory
+_ENV_PATH = os.path.join(os.path.dirname(__file__), "..", "..", ".env")
+load_dotenv(dotenv_path=os.path.abspath(_ENV_PATH))
+
+from langchain_groq import ChatGroq
 from src.core.workspace import AgentWorkspace
 from src.core.db_engine import DBEngine
 
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0, max_retries=3)
 
 class DynamicSQLPayload(BaseModel):
     sql_query: str = Field(description="The generated valid SQL string to fulfill the analytical intent.")
