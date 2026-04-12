@@ -6,6 +6,7 @@ pandas
 plotly
 altair
 langgraph
+
 langchain-google-genai
 pydantic
 # typing-extensions>=4.12.0

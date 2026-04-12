@@ -4,6 +4,7 @@ from langgraph.graph import StateGraph, END
 from langchain_google_genai import ChatGoogleGenerativeAI
 from src.core.workspace import AgentWorkspace
 
+
 # Initialize the Gemini LLM
 llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
 
@@ -17,6 +18,7 @@ def plan_execution(state: AgentWorkspace) -> dict:
     query = state.get("user_query", "")
     metrics = state.get("identified_metrics", [])
     sql = state.get("sql_query", "")
+
     errors = state.get("error_logs", [])
     
     prompt = (
