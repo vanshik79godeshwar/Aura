@@ -19,5 +19,5 @@ def render_trust_trace(reasoning_steps: List[str], source_data: Optional[pd.Data
             
         if source_data is not None and not source_data.empty:
             st.markdown("**Source Data Snippet:**")
-            st.dataframe(source_data.head(), use_container_width=True)
+            st.dataframe(source_data.head())
             st.caption("Showing the top 5 relevant rows used to generate the answer.")
