@@ -5,6 +5,7 @@ asks questions and receives fast, trustworthy insights.
 """
 import streamlit as st
 from src.ui.components.message_cards import render_message
+from src.ui.components.trust_trace import render_trust_trace
 from src.agents.orchestrator import app as aura_graph
 from src.core.workspace import AgentWorkspace
 
@@ -33,6 +34,7 @@ def render_main_chat():
             initial_state: AgentWorkspace = {
                 "user_query": prompt,
                 "identified_metrics": [],
+                "relevant_tables": [],
                 "sql_query": "",
                 "error_logs": [],
                 "current_status": "initialized",
@@ -42,12 +44,20 @@ def render_main_chat():
             status = st.status("Processing Request...", expanded=True)
             
             final_state = initial_state.copy()
+            trust_steps = ["Orchestrator Routing Logic Initiated"]
             for output in aura_graph.stream(initial_state):
                 for node_name, state_update in output.items():
                     status.write(f"✓ Agent **{node_name}** executed.")
                     final_state.update(state_update)
+                    
+                    if "current_status" in state_update:
+                         trust_steps.append(f"[{node_name}] {state_update['current_status']}")
+                    if "error_logs" in state_update and state_update["error_logs"]:
+                         trust_steps.append(f"[{node_name}] Log: {state_update['error_logs'][-1]}")
             
             status.update(label="Analysis Complete", state="complete")
+        
+        render_trust_trace(trust_steps)
             
         if final_state.get("final_response"):
             st.markdown(final_state["final_response"])

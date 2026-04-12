@@ -58,54 +58,60 @@ def plan_execution(state: AgentWorkspace) -> dict:
 # accepting Meet's auto-mocked data without breaking transition definitions.
 
 def metadata_retriever(state: AgentWorkspace) -> dict:
-    try:
-        from src.agents.metadata_retriever import run_retriever
-        return run_retriever(state)
-    except Exception as e:
-        error_logs = list(state.get("error_logs", []))
-        error_logs.append(f"[metadata_retriever] fallback or error: {str(e)}")
-        return {"current_status": "[metadata_retriever] executed via fallback", "error_logs": error_logs}
-
+    from src.agents.oracle import lexicon
+    return lexicon(state)
 
 def analyst_and_math(state: AgentWorkspace) -> dict:
-    try:
-        from src.agents.oracle import run_analyst
-        return run_analyst(state)
-    except Exception as e:
-        import pandas as pd
-        error_logs = list(state.get("error_logs", []))
-        error_logs.append(f"[analyst_and_math] fallback or error: {str(e)}")
-        mock_df = pd.DataFrame({"merchant": ["Starbucks", "Tesco", "Uber", "Amazon"], "total_amount": [45.50, 120.00, 15.00, 150.00]})
-        return {"current_status": "[analyst_and_math] executed via fallback", "error_logs": error_logs, "raw_data": mock_df}
+    from src.agents.analyst import call_analyst
+    return call_analyst(state)
 
 def sql_sentry(state: AgentWorkspace) -> dict:
-    try:
-        from src.agents.sql_sentry import run_sentry
-        return run_sentry(state)
-    except Exception as e:
-        error_logs = list(state.get("error_logs", []))
-        error_logs.append(f"[sql_sentry] fallback or error: {str(e)}")
-        return {"current_status": "[sql_sentry] executed via fallback", "error_logs": error_logs}
+    from src.agents.sql_sentry import SQLSentry
+    auditor = SQLSentry()
+    res = auditor.analyze_query(state.get("sql_query", ""), state.get("relevant_tables", []))
+    
+    error_logs = state.get("error_logs", [])
+    if res.get("status") == "PASS":
+        error_logs.append("Audit Approval: SQL Execution authorized by Sentry.")
+    else:
+        error_logs.append(f"Correction Reason: {res.get('reason')} (Hint: {res.get('correction_hint')})")
+        
+    return {
+        "current_status": "sql_sentry complete",
+        "sentry_status": res.get("status", "FAIL"),
+        "sentry_reason": res.get("reason", ""),
+        "sentry_correction": res.get("correction_hint", ""),
+        "error_logs": error_logs
+    }
 
 def visualizer_and_storyteller(state: AgentWorkspace) -> dict:
+    from src.agents.visualizer_agent import generate_visualization
+    from src.agents.storyteller import run_storyteller
     try:
-        from src.agents.visualizer_agent import generate_visualization
-        from src.agents.storyteller import run_storyteller
-        return run_storyteller(state)
+        import pandas as pd
+        import io
+        raw = state.get("raw_data")
+        if isinstance(raw, dict):
+            # Parse json records to dataframe natively preserving strings
+            if raw.get("data") and raw["data"] != "[]":
+                raw = pd.read_json(io.StringIO(raw["data"]))
+            else:
+                raw = pd.DataFrame()
+        fig = generate_visualization(raw)
     except Exception as e:
-        import plotly.express as px
-        error_logs = list(state.get("error_logs", []))
-        error_logs.append(f"[visualizer_and_storyteller] fallback or error: {str(e)}")
-        raw_data = state.get("raw_data")
+        error_logs = state.get("error_logs", [])
+        error_logs.append(f"Visualizer Error: {e}")
         fig = None
-        if raw_data is not None and not raw_data.empty:
-            fig = px.bar(raw_data, x="merchant", y="total_amount")
-        return {
-            "current_status": "[visualizer_and_storyteller] executed via fallback", 
-            "error_logs": error_logs, 
-            "final_response": "Here is the comparison breakdown. Starbucks and Amazon represent your highest outflows.", 
-            "visual_output": fig
-        }
+    
+    # Storyteller narrative
+    story_update = run_storyteller(state)
+        
+    return {
+        "current_status": "visualizer_and_storyteller complete",
+        "visual_output": fig,
+        "final_response": story_update.get("final_response"),
+        "error_logs": story_update.get("error_logs", state.get("error_logs", []))
+    }
 
 def route(state: AgentWorkspace) -> str:
     """Routing function that reads next_action from state."""
@@ -113,6 +119,18 @@ def route(state: AgentWorkspace) -> str:
     if action == "END":
         return END
     return action
+
+def route_sentry(state: AgentWorkspace) -> str:
+    """Conditional self-healing loop: Route back to analyst if Sentry catches hallucinated syntax."""
+    status = state.get("sentry_status", "PASS")
+    retries = state.get("retry_count", 0)
+    
+    # Send it to Visualizer if Audit clears. 
+    # BUT explicitly force it if we are stuck in an infinite query glitch! (Max 3 retries).
+    if status == "PASS" or retries >= 3:
+        return "visualizer_and_storyteller"
+        
+    return "analyst_and_math"
 
 # Define and compile the state graph
 workflow = StateGraph(AgentWorkspace)
@@ -133,7 +151,10 @@ workflow.add_conditional_edges("plan_execution", route)
 # Definitive analytical pipeline flow ensuring Sentries evaluate Analysts before visual output
 workflow.add_edge("metadata_retriever", "analyst_and_math")
 workflow.add_edge("analyst_and_math", "sql_sentry")
-workflow.add_edge("sql_sentry", "visualizer_and_storyteller")
+
+# Self-Healing Evaluation Node!
+workflow.add_conditional_edges("sql_sentry", route_sentry)
+
 workflow.add_edge("visualizer_and_storyteller", END)
 
 # Compile into app variable

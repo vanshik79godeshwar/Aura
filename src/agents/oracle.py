@@ -10,7 +10,7 @@ user intent instead of relying on rigid hardcoded rules.
 import os
 from typing import Dict, Any, Literal
 from pydantic import BaseModel, Field
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from src.core.workspace import AgentWorkspace
 from src.agents.metadata_retriever import MetadataRetriever
 
@@ -52,8 +52,8 @@ def _classify_intent_locally(query: str) -> OracleExtraction:
 
 def analyze_intent(query: str) -> OracleExtraction:
     """Uses a dynamic LLM via LangChain to extract semantic features."""
-    # Instantiating the Gemini model wrapper 
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+    # Instantiating the Groq model wrapper 
+    llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0, max_retries=3)
     structured_llm = llm.with_structured_output(OracleExtraction)
     
     prompt = (
@@ -66,16 +66,18 @@ def analyze_intent(query: str) -> OracleExtraction:
 
 def lexicon(state: AgentWorkspace) -> Dict[str, Any]:
     """
-    Semantic Layer Agent (Lexicon): Extracts intention and metrics dynamically via Gemini API,
+    Semantic Layer Agent (Lexicon): Extracts intention and metrics dynamically via Groq API,
     and simultaneously pulls Vector Context from ChromaDB Atlas.
     """
-    print("Agent [Lexicon]: Asking Gemini to compute intent and fetching verified tables...")
+    print("Agent [Lexicon]: Asking Groq to compute intent and fetching verified tables...")
     query = state.get("user_query", "")
+    error_logs = state.get("error_logs", [])
     
     # Instantiate the retriever for Atlas schema checks
     retriever = MetadataRetriever()
     relevant_tables = retriever.get_relevant_tables(query)
     print(f"Agent [Lexicon]: ChromaDB identified contextual tables -> {relevant_tables}")
+    error_logs.append(f"ChromaDB mapped semantic query to verified structure schemas: {relevant_tables}")
     
     try:
         extraction = analyze_intent(query)
@@ -85,6 +87,7 @@ def lexicon(state: AgentWorkspace) -> Dict[str, Any]:
             "identified_metrics": extraction.identified_metrics,
             "analysis_type": extraction.analysis_type,
             "relevant_tables": relevant_tables,
+            "error_logs": error_logs,
             "current_status": "lexicon_complete"
         }
     except Exception as e:

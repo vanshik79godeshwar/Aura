@@ -20,3 +20,7 @@ class AgentWorkspace(TypedDict, total=False):
     current_status: str
     retry_count: int  # Helpful for handling retry loops in the orchestrator
     next_action: str  # Routing decision from the orchestrator
+    sentry_status: str
+    sentry_reason: str
+    sentry_correction: str
+    final_response: str

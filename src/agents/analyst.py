@@ -12,11 +12,11 @@ import json
 import pandas as pd
 from typing import Dict, Any, List
 from pydantic import BaseModel, Field
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from src.core.workspace import AgentWorkspace
 from src.core.db_engine import DBEngine
 
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0, max_retries=3)
 
 class DynamicSQLPayload(BaseModel):
     sql_query: str = Field(description="The generated valid SQL string to fulfill the analytical intent.")
@@ -64,18 +64,37 @@ def _build_fallback_sql(metrics: list[str], analysis_type: str, relevant_tables:
     else:
         return f"SELECT {chosen_col} FROM {chosen_table} LIMIT 10;"
 
-def _generate_sql_query(metrics: list[str], analysis_type: str, relevant_tables: list[str]) -> str:
-    """Uses Gemini to dynamically formulate the database table querying logic using verified context.
+def _generate_sql_query(metrics: list[str], analysis_type: str, relevant_tables: list[str], sentry_reason: str = None) -> str:
+    """Uses Groq LLM to dynamically formulate the database table querying logic using verified context.
     Falls back to a rule-based generator if the API quota is exhausted.
     """
+    import json
+    metadata_path = os.path.join(os.path.dirname(__file__), "..", "core", "metadata_dictionary.json")
+    schema_context = ""
+    try:
+        with open(metadata_path) as f:
+            meta = json.load(f)
+        for table in relevant_tables:
+            if table in meta.get("tables", {}):
+                cols = list(meta["tables"][table].get("columns", {}).keys())
+                schema_context += f"Table '{table}' has columns: {cols}\n"
+    except Exception:
+        schema_context = "(Schema unavailable, use logical assumptions)"
+
     try:
         structured_llm = llm.with_structured_output(DynamicSQLPayload)
+        feedback = f"\nCRITICAL FIX REQUIRED: Your previous query failed audit entirely. Reason: {sentry_reason}\nFix this query immediately based on the reason above!" if sentry_reason else ""
+        
         prompt = (
             f"You are a Senior SQL Analyst. A user wants to do a '{analysis_type}' analysis.\n"
             f"The relevant metrics are: {metrics}\n"
             f"The verified database tables you MUST query from are: {relevant_tables}\n"
-            f"Write a standard, logical SQL query to fetch data that supports this. Do not guess table names outside of the verified ones! "
+            f"transactions table columns: tx_id, account_id, amount, tx_date, merchant_name.\n"
+            f"Column Reference:\n{schema_context}\n"
+            f"Write a standard, logical SQL query to fetch data that supports this. Do not guess table names or column names outside of the verified ones!\n"
+            f"You MUST ONLY use the column names listed in the verified schema. If you use table1 or id, the Sentry will block you.\n"
             f"If forecast/comparison, GROUP BY a date-like column. If rca, check for anomalies."
+            f"{feedback}"
         )
         result = structured_llm.invoke(prompt)
         return result.sql_query
@@ -141,13 +160,17 @@ def _perform_forecasting(data_array: List[float]) -> Dict[str, Any]:
 def _perform_comparison(data_array: List[float]) -> Dict[str, Any]:
     if len(data_array) < 2: return {"finding": "Need cohorts for comparison."}
     previous, current = data_array[0], data_array[1]
-    if previous == 0: return {"delta": "N/A (base is 0)"}
+    if previous == 0: return {"absolute_difference": current, "percentage_change": "N/A (base is 0)", "direction": "increased" if current > 0 else "decreased"}
+    
+    abs_diff = abs(current - previous)
     percent_change = ((current - previous) / previous) * 100
     direction = "increased" if percent_change > 0 else "decreased"
+    
     return {
         "previous_period": previous,
         "current_period": current,
-        "delta": f"{abs(round(percent_change, 2))}%",
+        "absolute_difference": round(abs_diff, 2),
+        "percentage_change": f"{round(percent_change, 2)}%",
         "direction": direction
     }
 
@@ -158,14 +181,18 @@ def call_analyst(state: AgentWorkspace) -> Dict[str, Any]:
     metrics = state.get("identified_metrics", [])
     analysis_type = state.get("analysis_type", "standard")
     relevant_tables = state.get("relevant_tables", [])
+    sentry_reason = state.get("sentry_reason", "")
     
-    print(f"Agent [Analyst]: Calling Gemini to dynamically generate SQL & fetch data...")
+    # Increment retry loop
+    retry_count = state.get("retry_count", 0) + 1
+    
+    print(f"Agent [Analyst]: Calling Groq to dynamically generate SQL & fetch data... (Retry {retry_count})")
     try:
-        sql = _generate_sql_query(metrics, analysis_type, relevant_tables)
-        print(f"Agent [Analyst]: Gemini Engineered SQL -> {sql}")
+        sql = _generate_sql_query(metrics, analysis_type, relevant_tables, sentry_reason=sentry_reason if retry_count > 1 else None)
+        print(f"Agent [Analyst]: Groq Engineered SQL -> {sql}")
         
         data = _fetch_data_from_db(sql, analysis_type)
-        print(f"Agent [Analyst]: Gemini Hallucinated DB points -> {data.get('timeseries_array')}")
+        print(f"Agent [Analyst]: Groq Hallucinated DB points -> {data.get('timeseries_array')}")
         
         advanced_results = {}
         ts_array = data.get("timeseries_array", [])
@@ -176,11 +203,15 @@ def call_analyst(state: AgentWorkspace) -> Dict[str, Any]:
             advanced_results = _perform_forecasting(ts_array)
         elif analysis_type == "comparison":
             advanced_results = _perform_comparison(ts_array)
+        else:
+            advanced_results = {"finding": "Standard tabular retrieval."}
             
         return {
             "sql_query": sql,
             "raw_data": data,
             "advanced_analytics_results": advanced_results,
+            "statistical_payload": advanced_results,
+            "retry_count": retry_count,
             "current_status": "analyst_complete"
         }
     except Exception as e:
