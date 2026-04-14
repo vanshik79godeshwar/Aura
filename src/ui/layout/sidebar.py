@@ -25,21 +25,20 @@ _DB_PATH = os.path.join(_PROJECT_ROOT, "aura.db")
 
 
 def _save_to_duckdb(df: pd.DataFrame, table_name: str):
-    """Persist a DataFrame as a DuckDB table in aura.db. Replaces same-named table."""
-    conn = duckdb.connect(database=_DB_PATH)
-    # Register the DataFrame so DuckDB SQL can reference it
-    conn.register("_upload_df", df)
-    conn.execute(f'CREATE OR REPLACE TABLE "{table_name}" AS SELECT * FROM _upload_df')
-    conn.close()
+    """Persist a DataFrame as a DuckDB table via the shared DBEngine Singleton."""
+    from src.core.db_engine import DBEngine
+    DBEngine().register_dataframe(df, table_name)
 
 
 def _run_pipeline():
-    """Regenerate metadata and re-index ChromaDB after a new upload."""
+    """Regenerate metadata, re-index ChromaDB, and build JIT Registry after a new upload."""
     from src.core.generate_metadata import auto_generate_metadata
     from src.core.ingest_metadata import ingest
+    from src.core.registry import ContextRegistry
 
     auto_generate_metadata()
     ingest()
+    ContextRegistry().build_registry()
 
 
 def render_sidebar():
@@ -60,23 +59,38 @@ def render_sidebar():
             st.session_state.clear()
             st.session_state["retry_count"] = 0
             
+            # --- TASK 3: THE NUCLEAR CLEAR ---
             try:
                 from src.core.db_engine import DBEngine
-                engine = DBEngine()
-                if hasattr(engine, 'conn') and engine.conn:
-                    engine.conn.close()
-                DBEngine._instance = None
+                DBEngine().close()   # Release OS file lock BEFORE deleting aura.db
             except Exception:
                 pass
                 
             import shutil
+            # 1. Delete DuckDB file
             if os.path.exists(_DB_PATH):
                 try: os.remove(_DB_PATH)
                 except: pass
-            chroma_path = os.path.join(_PROJECT_ROOT, ".chroma_db")
-            if os.path.exists(chroma_path):
-                try: shutil.rmtree(chroma_path)
+            
+            # 2. Delete ChromaDB folder (Supporting both .chroma_db and chroma_db)
+            for folder in [".chroma_db", "chroma_db"]:
+                chroma_path = os.path.join(_PROJECT_ROOT, folder)
+                if os.path.exists(chroma_path):
+                    try: shutil.rmtree(chroma_path)
+                    except: pass
+            
+            # 3. Reset Metadata Dictionary to empty JSON object
+            metadata_file = os.path.join(_PROJECT_ROOT, "src", "core", "metadata_dictionary.json")
+            if os.path.exists(metadata_file):
+                try:
+                    import json
+                    with open(metadata_file, "w") as f:
+                        json.dump({}, f)
                 except: pass
+
+            from src.core.registry import ContextRegistry
+            ContextRegistry().build_registry()
+            
             st.rerun()
             
         st.markdown("---")
@@ -107,6 +121,7 @@ def render_sidebar():
                             
                             status.update(label=f"✅ {uploaded_file.name} parsed!", state="complete", expanded=False)
                             st.session_state[file_key] = True
+                            st.session_state["active_upload"] = table_name  # Track most recent upload for LLM priority
                             st.success(f"✅ Ready: **{uploaded_file.name}** → `{table_name}` table")
                             st.caption(f"Rows: {len(df):,} | Columns: {len(df.columns)}")
                         except Exception as e:

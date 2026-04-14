@@ -35,6 +35,10 @@ def ingest():
         
     print(f"Ingesting {len(documents)} tables into ChromaDB...")
     
+    if not documents:
+        print("No metadata tables found for ingestion. Vector storage is clean.")
+        return
+
     # ChromaDB's add method will overwrite entirely or error if IDs exist, so we use upsert
     collection.upsert(
         documents=documents,

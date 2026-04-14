@@ -64,7 +64,7 @@ You MUST respond strictly in the following JSON format:
 """
         return prompt
 
-    def analyze_query(self, proposed_sql: str, relevant_tables: list) -> dict:
+    def analyze_query(self, proposed_sql: str, relevant_tables: list, metadata_context: str = "") -> dict:
         """
         Executes the Auditor.
         Leverages Groq to enforce schema exactness over hallucinated queries.
@@ -73,7 +73,7 @@ You MUST respond strictly in the following JSON format:
         engine = DBEngine()
         
         live_tables = engine.list_tables()
-        schema_text = self._extract_schemas(relevant_tables)
+        schema_text = metadata_context if metadata_context else self._extract_schemas(relevant_tables)
         
         # Inject Live DuckDB types cleanly
         valid_columns = []
@@ -88,7 +88,7 @@ You MUST respond strictly in the following JSON format:
                 except Exception:
                     pass
         
-        # Task 1: If a column does not exist, return a FAIL status programmatically without calling the Groq API!
+        # Programmatic EXPLAIN check — catches missing columns, type mismatches, invalid aggregations
         try:
             engine.execute_query(f"EXPLAIN {proposed_sql}")
         except Exception as e:
@@ -96,11 +96,30 @@ You MUST respond strictly in the following JSON format:
             if "not found" in error_str or "does not exist" in error_str:
                 return {
                     "status": "FAIL",
-                    "reason": f"Programmatic Sentry Validation Failed: {str(e)}",
-                    "correction_hint": "You MUST ONLY use columns returned by the PRAGMA check!"
+                    "reason": f"Programmatic Sentry: Column does not exist. Detailed Error: {str(e)}",
+                    "correction_hint": "You MUST ONLY use columns found in the Metadata Registry context provided!"
                 }
-        
-        # Task 2: Sentry Logic Hardening - Programmatic Bypass
+            if "regexp_replace" in error_str or "no function matches" in error_str:
+                return {
+                    "status": "FAIL",
+                    "reason": f"Programmatic Sentry: REGEXP_REPLACE applied to a non-VARCHAR (numeric) column. Error: {str(e)}",
+                    "correction_hint": "The column is already numeric (DOUBLE). Use SUM(column) directly. Do NOT wrap numeric columns in REGEXP_REPLACE or TRY_CAST."
+                }
+            if "must appear in the group by" in error_str or "aggregat" in error_str:
+                return {
+                    "status": "FAIL",
+                    "reason": f"Programmatic Sentry: GROUP BY violation. Error: {str(e)}",
+                    "correction_hint": "SELECT may only contain the GROUP BY column(s) and aggregate functions. Remove any raw columns not in GROUP BY."
+                }
+            # Catch-all: any Binder Error from DuckDB is a real SQL problem — fail it
+            if "binder error" in error_str or "catalog error" in error_str:
+                return {
+                    "status": "FAIL",
+                    "reason": f"Programmatic Sentry: DuckDB rejected SQL. Error: {str(e)}",
+                    "correction_hint": f"Fix this SQL error: {str(e)}"
+                }
+
+        # Aggregation bypass — query structure verified by EXPLAIN above
         sql_upper = proposed_sql.upper()
         if any(agg in sql_upper for agg in ["SUM(", "AVG(", "COUNT("]):
             return {

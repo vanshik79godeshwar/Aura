@@ -12,6 +12,8 @@ class AgentWorkspace(TypedDict, total=False):
     visual_configuration: dict  # To hold Kushal's Plotly heuristic settings
 
     relevant_tables: List[str] # Retrieved from ChromaDB
+    metadata_context: str
+    logical_plan: Dict[str, Any]
 
     sql_query: str
     raw_data: Optional[Any]  # Can hold dictionary or Pandas DataFrames (including Meet's auto-mocked data)
@@ -24,3 +26,18 @@ class AgentWorkspace(TypedDict, total=False):
     sentry_reason: str
     sentry_correction: str
     final_response: str
+    active_upload: str # Name of the most recently uploaded table (for LLM prioritization)
+    supervisor_plan: str
+    routing_decision: str
+    analyst_instructions: str
+    visualizer_instructions: str
+    target_chart_type: str
+
+def reset_execution_state(state: AgentWorkspace) -> AgentWorkspace:
+    """
+    Purges ghost logs and execution variables from an ongoing state dict to ensure a clean slate.
+    """
+    state["sql_query"] = ""
+    state["error_logs"] = []
+    state["sentry_reason"] = ""
+    return state

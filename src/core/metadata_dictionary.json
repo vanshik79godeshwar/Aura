@@ -1,95 +1,25 @@
 {
   "tables": {
-    "amazon": {
-      "description": "Auto-generated schema for dataset 'amazon'.",
-      "columns": {
-        "product_id": {
-          "description": "Auto-detected column 'product_id' representing object data. Example values: B07JW9H4J1, B098NS6PVG, B096MSW6CT."
-        },
-        "product_name": {
-          "description": "Auto-detected column 'product_name' representing object data. Example values: Wayona Nylon Braided USB to Lightning Fast Charging and Data Sync Cable Compatible for iPhone 13, 12,11, X, 8, 7, 6, 5, iPad Air, Pro, Mini (3 FT Pack of 1, Grey), Ambrane Unbreakable 60W / 3A Fast Charging 1.5m Braided Type C Cable for Smartphones, Tablets, Laptops & other Type C devices, PD Technology, 480Mbps Data Sync, Quick Charge 3.0 (RCT15A, Black), Sounce Fast Phone Charging Cable & Data Sync USB Cable Compatible for iPhone 13, 12,11, X, 8, 7, 6, 5, iPad Air, Pro, Mini & iOS Devices."
-        },
-        "category": {
-          "description": "Auto-detected column 'category' representing object data. Example values: Computers&Accessories|Accessories&Peripherals|Cables&Accessories|Cables|USBCables, Computers&Accessories|NetworkingDevices|NetworkAdapters|WirelessUSBAdapters, Electronics|HomeTheater,TV&Video|Accessories|Cables|HDMICables."
-        },
-        "discounted_price": {
-          "description": "Auto-detected column 'discounted_price' representing object data. Example values: \u20b9399, \u20b9199, \u20b9329."
-        },
-        "actual_price": {
-          "description": "Auto-detected column 'actual_price' representing object data. Example values: \u20b91,099, \u20b9349, \u20b91,899."
-        },
-        "discount_percentage": {
-          "description": "Auto-detected column 'discount_percentage' representing object data. Example values: 64%, 43%, 90%."
-        },
-        "rating": {
-          "description": "Auto-detected column 'rating' representing object data. Example values: 4.2, 4.0, 3.9."
-        },
-        "rating_count": {
-          "description": "Auto-detected column 'rating_count' representing object data. Example values: 24,269, 43,994, 7,928."
-        },
-        "about_product": {
-          "description": "Auto-detected column 'about_product' representing object data. Example values: High Compatibility : Compatible With iPhone 12, 11, X/XsMax/Xr ,iPhone 8/8 Plus,iPhone 7/7 Plus,iPhone 6s/6s Plus,iPhone 6/6 Plus,iPhone 5/5s/5c/se,iPad Pro,iPad Air 1/2,iPad mini 1/2/3,iPod nano7,iPod touch and more apple devices.|Fast Charge&Data Sync : It can charge and sync simultaneously at a rapid speed, Compatible with any charging adaptor, multi-port charging station or power bank.|Durability : Durable nylon braided design with premium aluminum housing and toughened nylon fiber wound tightly around the cord lending it superior durability and adding a bit to its flexibility.|High Security Level : It is designed to fully protect your device from damaging excessive current.Copper core thick+Multilayer shielding, Anti-interference, Protective circuit equipment.|WARRANTY: 12 months warranty and friendly customer services, ensures the long-time enjoyment of your purchase. If you meet any question or problem, please don't hesitate to contact us., Compatible with all Type C enabled devices, be it an android smartphone (Mi, Samsung, Oppo, Vivo, Realme, OnePlus, etc), tablet, laptop (Macbook, Chromebook, etc)|Supports Quick Charging (2.0/3.0)|Unbreakable \u2013 Made of special braided outer with rugged interior bindings, it is ultra-durable cable that won\u2019t be affected by daily rough usage|Ideal Length \u2013 It has ideal length of 1.5 meters which is neither too short like your typical 1meter cable or too long like a 2meters cable|Supports maximum 3A fast charging and 480 Mbps data transfer speed|6 months manufacturer warranty from the date of purchase, \u3010 Fast Charger& Data Sync\u3011-With built-in safety proctections and four-core copper wires promote maximum signal quality and strength and enhance charging & data transfer speed with up to 480 mb/s transferring speed.|\u3010 Compatibility\u3011-Compatible with iPhone 13, 12,11, X, 8, 7, 6, 5, iPad Air, Pro, Mini & iOS devices.|\u3010 Sturdy & Durable\u3011-The jacket and enforced connector made of TPE and premium copper, are resistant to repeatedly bending and coiling.|\u3010 Ultra High Quality\u3011: According to the experimental results, the fishbone design can accept at least 20,000 bending and insertion tests for extra protection and durability. Upgraded 3D aluminum connector and exclusive laser welding technology, which to ensure the metal part won't break and also have a tighter connection which fits well even with a protective case on and will never loose connection.|\u3010 Good After Sales Service\u3011-Our friendly and reliable customer service will respond to you within 24 hours ! you can purchase with confidence,and every sale includes a 365-day worry-free Service to prove the importance we set on quality.."
-        },
-        "user_id": {
-          "description": "Auto-detected column 'user_id' representing object data. Example values: AG3D6O4STAQKAY2UVGEUV46KN35Q,AHMY5CWJMMK5BJRBBSNLYT3ONILA,AHCTC6ULH4XB6YHDY6PCH2R772LQ,AGYHHIERNXKA6P5T7CZLXKVPT7IQ,AG4OGOFWXJZTQ2HKYIOCOY3KXF2Q,AENGU523SXMOS7JPDTW52PNNVWGQ,AEQJHCVTNINBS4FKTBGQRQTGTE5Q,AFC3FFC5PKFF5PMA52S3VCHOZ5FQ, AECPFYFQVRUWC3KGNLJIOREFP5LQ,AGYYVPDD7YG7FYNBXNGXZJT525AQ,AHONIZU3ICIEHQIGQ6R2VFRSBXOQ,AFPHD2CRPDZMWMBL7WXRSVYWS5JA,AEZ346GX3HJ4O4XNRPHCNHXQURMQ,AEPSWFPNECKO34PUC7I56ITGXR6Q,AHWVEHR5DYLVFTO2KF3IZATFQSWQ,AH4QT33M55677I7ISQOAKEQWACYQ, AGU3BBQ2V2DDAMOAKGFAWDDQ6QHA,AESFLDV2PT363T2AQLWQOWZ4N3OA,AHTPQRIMGUD4BYR5YIHBH3CCGEFQ,AEUVWXYP5LT7PZLLZENEO2NODPBQ,AHC7MPW55DOO6WNCOQVA2VHOD26A,AFDI6FRPFBTNBG7BAEB7JDJSMKDQ,AFQKCEEEKXCOHTDG4WUN3XPPHJQQ,AHKUUFNMBZIDLSSPA4FEHIO2EC7Q."
-        },
-        "user_name": {
-          "description": "Auto-detected column 'user_name' representing object data. Example values: Manav,Adarsh gupta,Sundeep,S.Sayeed Ahmed,jaspreet singh,Khaja moin,Anand,S.ARUMUGAM, ArdKn,Nirbhay kumar,Sagar Viswanathan,Asp,Placeholder,BharanI,sonia,Niam, Kunal,Himanshu,viswanath,sai niharka,saqib malik,Aashiq,Ramu Challa,Sanjay gupta."
-        },
-        "review_id": {
-          "description": "Auto-detected column 'review_id' representing object data. Example values: R3HXWT0LRP0NMF,R2AJM3LFTLZHFO,R6AQJGUP6P86,R1KD19VHEDV0OR,R3C02RMYQMK6FC,R39GQRVBUZBWGY,R2K9EDOE15QIRJ,R3OI7YT648TL8I, RGIQEG07R9HS2,R1SMWZQ86XIN8U,R2J3Y1WL29GWDE,RYGGS0M09S3KY,R17KQRUTAN5DKS,R3AAQGS6HP2QUK,R1HDNOG6TO2CCA,R3PHKXYA5AFEOU, R3J3EQQ9TZI5ZJ,R3E7WBGK7ID0KV,RWU79XKQ6I1QF,R25X4TBMPY91LX,R27OK7G99VK0TR,R207CYDCHJJTCJ,R3PCU8XMU173BT,R1IMONDOWRNU5V."
-        },
-        "review_title": {
-          "description": "Auto-detected column 'review_title' representing object data. Example values: Satisfied,Charging is really fast,Value for money,Product review,Good quality,Good product,Good Product,As of now seems good, A Good Braided Cable for Your Type C Device,Good quality product from ambrane,Super cable,As,Good quality,Good product,its good,Good quality for the price but one issue with my unit, Good speed for earlier versions,Good Product,Working good,Good for the price,Good,Worth for money,Working nice,it's a really nice product."
-        },
-        "review_content": {
-          "description": "Auto-detected column 'review_content' representing object data. Example values: Looks durable Charging is fine tooNo complains,Charging is really fast, good product.,Till now satisfied with the quality.,This is a good product . The charging speed is slower than the original iPhone cable,Good quality, would recommend,https://m.media-amazon.com/images/W/WEBP_402378-T1/images/I/81---F1ZgHL._SY88.jpg,Product had worked well till date and was having no issue.Cable is also sturdy enough...Have asked for replacement and company is doing the same...,Value for money, I ordered this cable to connect my phone to Android Auto of car. The cable is really strong and the connection ports are really well made. I already has a Micro USB cable from Ambrane and it's still in good shape. I connected my phone to the car using the cable and it got connected well and no issues. I also connected it to the charging port and yes it has Fast Charging support.,It quality is good at this price and the main thing is that i didn't ever thought that this cable will be so long it's good one and charging power is too good and also supports fast charging,Value for money, with extra length\ud83d\udc4d,Good, working fine,Product quality is good,Good,very good,Bought for my daughter's old phone.Brand new cable it was not charging, I already repacked and requested for replacement.I checked again, and there was some green colour paste/fungus inside the micro USB connector. I cleaned with an alcoholic and starts working again.Checked the ampere of charging speed got around 1400ma-1500ma - not bad, came with braided 1.5m long cable, pretty impressive for the price.Can't blame the manufacturer.But quality issues by the distributor, they might have stored in very humid place., Not quite durable and sturdy,https://m.media-amazon.com/images/W/WEBP_402378-T1/images/I/71rIggrbUCL._SY88.jpg,Working good,https://m.media-amazon.com/images/W/WEBP_402378-T1/images/I/61bKp9YO6wL._SY88.jpg,Product,Very nice product,Working well,It's a really nice product."
-        },
-        "img_link": {
-          "description": "Auto-detected column 'img_link' representing object data. Example values: https://m.media-amazon.com/images/W/WEBP_402378-T1/images/I/51UsScvHQNL._SX300_SY300_QL70_FMwebp_.jpg, https://m.media-amazon.com/images/W/WEBP_402378-T2/images/I/31zOsqQOAOL._SY445_SX342_QL70_FMwebp_.jpg, https://m.media-amazon.com/images/W/WEBP_402378-T1/images/I/31IvNJZnmdL._SY445_SX342_QL70_FMwebp_.jpg."
-        },
-        "product_link": {
-          "description": "Auto-detected column 'product_link' representing object data. Example values: https://www.amazon.in/Wayona-Braided-WN3LG1-Syncing-Charging/dp/B07JW9H4J1/ref=sr_1_1?qid=1672909124&s=electronics&sr=1-1, https://www.amazon.in/Ambrane-Unbreakable-Charging-Braided-Cable/dp/B098NS6PVG/ref=sr_1_2?qid=1672909124&s=electronics&sr=1-2, https://www.amazon.in/Sounce-iPhone-Charging-Compatible-Devices/dp/B096MSW6CT/ref=sr_1_3?qid=1672909124&s=electronics&sr=1-3."
-        }
-      }
-    },
     "sales_data": {
       "description": "Auto-generated schema for dataset 'sales_data'.",
       "columns": {
-        "date": {
-          "description": "Auto-detected column 'date' representing object data. Example values: 2024-01-01, 2024-02-01, 2024-03-01."
+        "Region": {
+          "description": "Auto-detected column 'Region' representing object data. Example values: North, South, East."
         },
-        "region": {
-          "description": "Auto-detected column 'region' representing object data. Example values: North, South."
+        "Month": {
+          "description": "Auto-detected column 'Month' representing object data. Example values: Jan, Feb, Mar."
         },
-        "category": {
-          "description": "Auto-detected column 'category' representing object data. Example values: Electronics, Clothing."
+        "Sales": {
+          "description": "Auto-detected column 'Sales' representing int64 data."
         },
-        "revenue": {
-          "description": "Auto-detected column 'revenue' representing int64 data."
+        "Revenue": {
+          "description": "Auto-detected column 'Revenue' representing int64 data."
         },
-        "ad_spend": {
-          "description": "Auto-detected column 'ad_spend' representing int64 data."
-        }
-      }
-    },
-    "transactions": {
-      "description": "Auto-generated schema for dataset 'transactions'.",
-      "columns": {
-        "tx_id": {
-          "description": "Auto-detected column 'tx_id' representing object data. Example values: T001, T002, T003."
+        "Profit": {
+          "description": "Auto-detected column 'Profit' representing int64 data."
         },
-        "account_id": {
-          "description": "Auto-detected column 'account_id' representing object data. Example values: A101, A102, A103."
-        },
-        "amount": {
-          "description": "Auto-detected column 'amount' representing float64 data."
-        },
-        "tx_date": {
-          "description": "Auto-detected column 'tx_date' representing datetime64[us] data."
-        },
-        "merchant_name": {
-          "description": "Auto-detected column 'merchant_name' representing object data. Example values: Starbucks, Tesco, Salary Deposit."
+        "Sales_Target": {
+          "description": "Auto-detected column 'Sales_Target' representing int64 data."
         }
       }
     }

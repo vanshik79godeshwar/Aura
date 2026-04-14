@@ -31,15 +31,24 @@ def render_main_chat():
         render_message("user", prompt)
         
         with st.chat_message("assistant"):
+            from src.core.registry import ContextRegistry
+            from src.core.workspace import reset_execution_state
+            
             initial_state: AgentWorkspace = {
                 "user_query": prompt,
                 "identified_metrics": [],
                 "relevant_tables": [],
+                "metadata_context": ContextRegistry().get_metadata_context(),
+                "logical_plan": {},
                 "sql_query": "",
                 "error_logs": [],
                 "current_status": "initialized",
-                "next_action": ""
+                "next_action": "",
+                "active_upload": st.session_state.get("active_upload", "")
             }
+            
+            # Enforce Clean Slate Logic guarantees
+            initial_state = reset_execution_state(initial_state)
 
             import time
             from src.ui.components.trust_trace import render_trust_trace
@@ -99,6 +108,11 @@ def render_main_chat():
             
         final_resp = final_state.get("final_response")
         visual_fig = final_state.get("visual_output")
+        supervisor_plan = final_state.get("supervisor_plan")
+
+        if supervisor_plan:
+            with st.expander("✨ Forensic Plan (Supervisor)", expanded=False):
+                st.info(supervisor_plan)
         
         # Regex pull custom metrics logic if single numbers returned
         import re

@@ -1,6 +1,5 @@
 import os
 import json
-import duckdb
 import pandas as pd
 
 # Resolve paths relative to project root
@@ -17,12 +16,11 @@ def auto_generate_metadata():
     Why: Replaces the old assets/ CSV scan. DuckDB is now the single source of truth,
     so metadata always mirrors what is actually queryable.
     """
-    if not os.path.exists(_DB_PATH):
-        print(f"[generate_metadata] No database found at {_DB_PATH}.")
-        print("  → Upload a CSV from the Streamlit UI first to create aura.db.")
-        return
+    print(f"[generate_metadata] Profiling registry metadata from: {_DB_PATH}")
 
-    conn = duckdb.connect(database=_DB_PATH, read_only=True)
+    from src.core.db_engine import DBEngine
+    engine = DBEngine()
+    conn = engine.get_connection()
     tables = [row[0] for row in conn.execute("SHOW TABLES").fetchall()]
 
     if not tables:
@@ -57,7 +55,7 @@ def auto_generate_metadata():
         except Exception as e:
             print(f"  [WARNING] Could not profile table '{table_name}': {e}")
 
-    conn.close()
+    # conn is owned by DBEngine Singleton — do NOT close it here
 
     with open(_METADATA_FILE, "w") as f:
         json.dump(data, f, indent=2)

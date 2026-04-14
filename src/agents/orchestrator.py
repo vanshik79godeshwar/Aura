@@ -22,7 +22,7 @@ from src.agents.analyst import call_analyst as analyst
 
 
 class OrchestratorDecision(BaseModel):
-    next_action: Literal["metadata_retriever", "analyst_and_math", "sql_sentry", "visualizer_and_storyteller", "END"] = Field(
+    next_action: Literal["metadata_retriever", "planner", "analyst_and_math", "sql_sentry", "visualizer_and_storyteller", "END"] = Field(
         description="The next step in the pipeline."
     )
     analysis_type: Literal['standard', 'rca', 'forecast', 'comparison'] = Field(
@@ -44,7 +44,7 @@ def plan_execution(state: AgentWorkspace) -> dict:
         f"Error Logs: {errors}\n\n"
         "Determine the 'analysis_type' ('standard', 'rca', 'forecast', or 'comparison') based on the query intent.\n"
         "If we haven't mapped metrics yet, route to 'metadata_retriever'. "
-        "If metrics are mapped but no SQL exists, route to 'analyst_and_math'. "
+        "If metrics are mapped but no SQL exists, route to 'planner'. "
         "If analysis is working but hasn't been audited, route to 'sql_sentry'. "
         "If data and auditing are completed, route to 'visualizer_and_storyteller'."
     )
@@ -79,7 +79,7 @@ def sql_sentry(state: AgentWorkspace) -> dict:
 
     from src.agents.sql_sentry import SQLSentry
     auditor = SQLSentry()
-    res = auditor.analyze_query(state.get("sql_query", ""), state.get("relevant_tables", []))
+    res = auditor.analyze_query(state.get("sql_query", ""), state.get("relevant_tables", []), state.get("metadata_context", ""))
     
     error_logs = state.get("error_logs", [])
     if res.get("status") == "PASS":
@@ -143,6 +143,9 @@ def route(state: AgentWorkspace) -> str:
     if action == "metadata_retriever" and state.get("sql_query", "") != "":
         return "visualizer_and_storyteller"
         
+    if action == "planner" and state.get("sql_query", "") != "":
+        return "visualizer_and_storyteller"
+        
     if state.get("current_status") == "analyst_complete":
         return "visualizer_and_storyteller"
         
@@ -166,27 +169,46 @@ def route_sentry(state: AgentWorkspace) -> str:
         
     return "analyst_and_math"
 
+from src.agents.supervisor import call_supervisor
+
+def route_supervisor(state: AgentWorkspace) -> str:
+    """Routes based on the Supervisor's decision."""
+    decision = state.get("routing_decision", "SQL_REQUIRED")
+    if decision == "INTERPRETATION_ONLY":
+        return "visualizer_and_storyteller"
+    return "analyst_and_math"
+
+def supervisor(state: AgentWorkspace) -> dict:
+    # Build Data Passport if not exists or if we want fresh context
+    from src.core.registry import ContextRegistry
+    registry = ContextRegistry()
+    registry.build_registry()
+    state["metadata_context"] = registry.get_metadata_context()
+    
+    return call_supervisor(state)
+
 # Define and compile the state graph
 workflow = StateGraph(AgentWorkspace)
 
-# Add strict nodes
-workflow.add_node("plan_execution", plan_execution)
+# Add nodes
 workflow.add_node("metadata_retriever", metadata_retriever)
+workflow.add_node("supervisor", supervisor)
 workflow.add_node("analyst_and_math", analyst_and_math)
 workflow.add_node("sql_sentry", sql_sentry)
 workflow.add_node("visualizer_and_storyteller", visualizer_and_storyteller)
 
 # Define routing
-workflow.set_entry_point("plan_execution")
+workflow.set_entry_point("metadata_retriever")
 
-# Conditional jumper based on LLM intent inference
-workflow.add_conditional_edges("plan_execution", route)
+# Flow: Retriever -> Supervisor -> (Analyst -> Sentry -> Storyteller) OR (Storyteller)
+workflow.add_edge("metadata_retriever", "supervisor")
 
-# Definitive analytical pipeline flow ensuring Sentries evaluate Analysts before visual output
-workflow.add_edge("metadata_retriever", "analyst_and_math")
+workflow.add_conditional_edges("supervisor", route_supervisor, {
+    "visualizer_and_storyteller": "visualizer_and_storyteller",
+    "analyst_and_math": "analyst_and_math"
+})
+
 workflow.add_edge("analyst_and_math", "sql_sentry")
-
-# Self-Healing Evaluation Node!
 workflow.add_conditional_edges("sql_sentry", route_sentry, {
     "metadata_retriever": "metadata_retriever",
     "visualizer_and_storyteller": "visualizer_and_storyteller",

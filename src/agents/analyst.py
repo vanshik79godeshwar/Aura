@@ -31,7 +31,7 @@ class DynamicSQLPayload(BaseModel):
 # ---------------------------------------------------------
 # Dynamic LLM Database Connectors
 # ---------------------------------------------------------
-def _build_fallback_sql(metrics: list[str], analysis_type: str, relevant_tables: list[str]) -> str:
+def _build_fallback_sql(metrics: list[str], analysis_type: str, relevant_tables: list[str], logical_plan: dict = None) -> str:
     """
     Rule-based SQL generator used when the Gemini API is unavailable (e.g. rate-limited).
     Reads the metadata_dictionary.json to find the correct numeric column for each table,
@@ -66,63 +66,57 @@ def _build_fallback_sql(metrics: list[str], analysis_type: str, relevant_tables:
         chosen_table = "transactions"
         chosen_col = "amount"
     
+    if logical_plan and logical_plan.get("group_by_required"):
+        # Fetch the first non-numeric column to use as breakdown category if possible
+        category_col = [c for c in cols if c != chosen_col][0] if chosen_table and 'cols' in locals() and len(cols) > 1 else 'account_id'
+        return f"SELECT {category_col}, SUM({chosen_col}) as sum_amount FROM {chosen_table} GROUP BY {category_col};"
+        
     if analysis_type == "comparison":
         return f"SELECT {chosen_col} FROM {chosen_table} LIMIT 2;"
     else:
         return f"SELECT {chosen_col} FROM {chosen_table} LIMIT 10;"
 
-def _generate_sql_query(metrics: list[str], analysis_type: str, relevant_tables: list[str], sentry_reason: str = None, live_tables: list[str] = None, schema_types_context: str = "") -> str:
-    """Uses Groq LLM to dynamically formulate the database table querying logic using verified context.
-    Falls back to a rule-based generator if the API quota is exhausted.
-    """
-    import json
-    metadata_path = os.path.join(os.path.dirname(__file__), "..", "core", "metadata_dictionary.json")
-    schema_intents = ""
+def _generate_sql_query(metrics: list[str], analysis_type: str, relevant_tables: list[str], sentry_reason: str = None, live_tables: list[str] = None, logical_plan: dict = None, metadata_context: str = "", supervisor_instructions: str = "") -> str:
+    """Uses Groq LLM to formulate valid DuckDB SQL based on strict Data Passport grounding."""
     try:
-        with open(metadata_path) as f:
-            meta = json.load(f)
-        for table in relevant_tables:
-            if table in meta.get("tables", {}):
-                cols_dict = meta["tables"][table].get("columns", {})
-                cols = [f"{c} (Description: {info.get('description', '')})" for c, info in cols_dict.items()]
-                schema_intents += f"Table '{table}' Column Intents: {cols}\n"
-    except Exception:
-        schema_intents = "(Schema unavailable, use logical assumptions)"
-
-    try:
-        structured_llm = llm.with_structured_output(DynamicSQLPayload)
-        feedback = f"\nCRITICAL FIX REQUIRED: Your previous query failed audit entirely. Reason: {sentry_reason}\nFix this query immediately based on the reason above!" if sentry_reason else ""
+        feedback = f"\nCRITICAL FIX REQUIRED: Your previous query failed audit. Reason: {sentry_reason}" if sentry_reason else ""
         
         prompt = (
-            f"You are a Senior SQL Analyst. A user wants to do a '{analysis_type}' analysis.\n"
-            f"The relevant metrics are: {metrics}\n"
-            f"The verified database tables context is: {relevant_tables}\n"
-            f"CRITICAL RULES:\n"
-            f"1. The ONLY tables presently alive in the persistent database are: {live_tables}\n"
-            f"2. You MUST map the user's query ONLY to these alive tables.\n"
-            f"3. transactions table columns: tx_id, account_id, amount, tx_date, merchant_name.\n"
-            f"Column Intents (Read Descriptions to detect currency/values stored as text):\n{schema_intents}\n"
-            f"Actual Column Types (From DB):\n{schema_types_context}\n"
-            f"Write a standard, logical SQL query to fetch data that supports this. Do not guess table names or column names outside of the verified ones!\n"
-            f"You are a compiler. You can ONLY use columns returned by the PRAGMA check. Any other column name will cause a system crash.\n"
-            f"CRITICAL GOVERNANCE RULES:\n"
-            f"1. **Table Isolation**: DO NOT attempt to JOIN tables unless they share a verified key (e.g., account_id). Jeśli query spans multiple tables ({live_tables}), prioritize the one most relevant to user intent.\n"
-            f"DECISION TREE (Type Casting):\n"
-            f"- **Type A (Numeric)**: If column is INT, BIGINT, DOUBLE, or FLOAT, use the raw column. PROHIBIT REGEXP_REPLACE or TRY_CAST.\n"
-            f"- **Type B (Dirty String)**: If column is VARCHAR AND semantic intent is currency/price, MANDATE TRY_CAST(REGEXP_REPLACE(col, '[^0-9.]', '', 'g') AS FLOAT).\n"
-            f"CONSTRAINT ENFORCEMENT: Explicitly map 'tx_date' for the transactions table. Ban the use of the word 'date'.\n"
-            f"**Aggregation-First Mandate**: NEVER fetch raw rows for mathematical questions. Perform all SUM, AVG, and COUNT inside the SQL query. This is a non-negotiable performance requirement.\n"
-            f"**Breakdown Mandate**: Strict Rule: If the prompt contains 'breakdown', 'by', 'distribution', 'per', or 'split', you are FORBIDDEN from returning a single row. Mandatory Action: You must identify a categorical column (e.g., region, category, status) from the DESCRIBE metadata and include it in both the SELECT and GROUP BY clauses. Fallback: If you are unsure which category to use, pick the one with the highest semantic relevance to 'Business Units' (like region). Correction: Your previous query SELECT SUM(revenue) FROM sales_data was INCORRECT. The correct response is SELECT region, SUM(revenue) FROM sales_data GROUP BY region.\n"
-            f"User Intent: {analysis_type} on {metrics}\n"
+            f"You are the Senior Data Scientist for Project Aura.\n"
+            f"OBJECTIVE: {supervisor_instructions}\n\n"
+            f"DATA PASSPORT (The ONLY allowed schema):\n{metadata_context}\n\n"
+            f"TRAP WARNING: The CSV file DOES NOT contain a 'Product' column. Use 'Region' instead.\n\n"
+            f"EXAMPLE 1:\n"
+            f"Goal: 'Total sales over months'\n"
+            f"Passport: sales_data has ['Month' (VARCHAR), 'Sales' (BIGINT)]\n"
+            f"Thought: I must group by Month and sum Sales.\n"
+            f"SQL: SELECT \"Month\", SUM(\"Sales\") FROM \"sales_data\" GROUP BY \"Month\";\n\n"
+            f"EXAMPLE 2:\n"
+            f"Goal: 'Profit by region'\n"
+            f"Passport: sales_data has ['Region' (VARCHAR), 'Profit' (BIGINT)]\n"
+            f"Thought: I must group by Region and sum Profit.\n"
+            f"SQL: SELECT \"Region\", SUM(\"Profit\") FROM \"sales_data\" GROUP BY \"Region\";\n\n"
+            f"RULES:\n"
+            f"1. PASSPORT SUPREMACY: Use EXACT names from the Passport ONLY.\n"
+            f"2. NO HALLUCINATION: If a column (like Product/Date) is not in the Passport, DO NOT USE IT.\n"
+            f"3. DUCKDB COMPLIANCE: Use double quotes for all identifiers.\n"
             f"{feedback}\n"
-            f"Final SQL Query:"
+            f"Constraint: You MUST output ONLY the raw SQL string inside backticks, like this: ```sql\nSELECT ...\n```"
         )
-        result = structured_llm.invoke(prompt)
-        return result.sql_query
-    except Exception:
-        # Quota exhausted or LLM unavailable — fall back to rule-based SQL
-        fallback = _build_fallback_sql(metrics, analysis_type, relevant_tables)
-        print(f"Agent [Analyst]: LLM unavailable, using rule-based SQL -> {fallback}")
+        
+        response = llm.invoke(prompt)
+        text = response.content
+        
+        # Extract SQL from potential backticks
+        import re
+        match = re.search(r"```sql\n(.*?)\n```", text, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+        return text.strip()
+        
+    except Exception as e:
+        fallback = _build_fallback_sql(metrics, analysis_type, relevant_tables, logical_plan)
+        print(f"Agent [Analyst]: Exception -> {str(e)} | using fallback -> {fallback}")
         return fallback
 
 def _fetch_data_from_db(sql: str, analysis_type: str) -> dict:
@@ -150,7 +144,8 @@ def _fetch_data_from_db(sql: str, analysis_type: str) -> dict:
         return {
             "status": "error", 
             "data": "[]",
-            "timeseries_array": [0.0] * 5
+            "timeseries_array": [0.0] * 5,
+            "error_message": str(e)
         }
 
 # ---------------------------------------------------------
@@ -215,28 +210,43 @@ def call_analyst(state: AgentWorkspace) -> Dict[str, Any]:
             "current_status": "analyst_error",
             "sql_query": ""
         }
+    logical_plan = state.get("logical_plan", {})
+    # Semantic Context Isolation - Simplified to prioritize full grounding
+    filtered_context = state.get("metadata_context", "No data passport context available.")
+    selected_tables = logical_plan.get("selected_tables", relevant_tables)
     
-    # Fetch exact PRAGMA schema for all relevant_tables before generating SQL
-    schema_types_context = ""
-    for table in live_tables:
-        if table in relevant_tables:
-            try:
-                pragma_df = engine.execute_query(f"PRAGMA table_info('{table}');")
-                types = ", ".join(pragma_df.apply(lambda row: f"{row['name']}: {row['type']}", axis=1).tolist())
-                schema_types_context += f"Table '{table}' PRAGMA: {types}\n"
-            except Exception:
-                pass
-                
     # Increment retry loop
     retry_count = state.get("retry_count", 0) + 1
     
     print(f"Agent [Analyst]: Calling Groq to dynamically generate SQL & fetch data... (Retry {retry_count})")
+    
+    supervisor_instr = state.get("analyst_instructions", "")
+    
     try:
-        sql = _generate_sql_query(metrics, analysis_type, relevant_tables, sentry_reason=sentry_reason if retry_count > 1 else None, live_tables=live_tables, schema_types_context=schema_types_context)
+        sql = _generate_sql_query(
+            metrics=metrics, 
+            analysis_type=analysis_type, 
+            relevant_tables=selected_tables, 
+            sentry_reason=sentry_reason if retry_count > 1 else None, 
+            live_tables=live_tables, 
+            logical_plan=logical_plan, 
+            metadata_context=filtered_context,
+            supervisor_instructions=supervisor_instr
+        )
         print(f"Agent [Analyst]: Groq Engineered SQL -> {sql}")
         
         data = _fetch_data_from_db(sql, analysis_type)
         print(f"Agent [Analyst]: Groq Hallucinated DB points -> {data.get('timeseries_array')}")
+
+        # If DuckDB rejected the SQL, immediately use the rule-based fallback
+        if data.get("status") == "error":
+            db_error = data.get("error_message", "Unknown DB error")
+            error_logs = state.get("error_logs", [])
+            error_logs.append(f"DB execution error on Retry {retry_count}: {db_error}")
+            print(f"Agent [Analyst]: DB error detected -> activating rule-based fallback SQL")
+            sql = _build_fallback_sql(metrics, analysis_type, selected_tables, logical_plan)
+            print(f"Agent [Analyst]: Fallback SQL -> {sql}")
+            data = _fetch_data_from_db(sql, analysis_type)
         
         advanced_results = {}
         ts_array = data.get("timeseries_array", [])
