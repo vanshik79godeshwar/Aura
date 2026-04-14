@@ -1,5 +1,10 @@
 # 🌟 Project Aura: Self-Service Intelligence Mesh
 
+**Official Hackathon Submission (v1.0)**: The core functional version submitted for the NatWest challenge can be found at this historical snapshot:  
+    [🔗 View v1.0 Submission Archive](https://github.com/vanshik79godeshwar/Aura/tree/303998801ab7d70949a012ff9cdd839cb711cbea)
+
+**Current Version (v2.0 - Active)**: Features the **Supervisor-Specialist Hub** refactor, enhanced **JIT Data Passports**, and a self-correcting autonomous reasoning engine.
+
 ## 📚 Table of Contents
 - [Overview](#overview)
 - [Features](#features)
