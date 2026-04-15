@@ -13,3 +13,7 @@ langchain-google-genai
 pydantic
 
 langchain-groq
+fastapi
+uvicorn
+python-multipart
+pydantic-settings

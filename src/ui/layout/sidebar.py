@@ -47,8 +47,7 @@ def render_sidebar():
     Why it exists: To organize system configurations and data inputs in one place.
     """
     with st.sidebar:
-
-        st.title("Aura Settings")
+        st.subheader("Data Management")
         
         with st.container(border=True):
             uploaded_files = st.file_uploader("Data Source", type=["csv", "xlsx"], label_visibility="hidden", accept_multiple_files=True)

@@ -33,7 +33,8 @@ def run_storyteller(state: AgentWorkspace) -> dict:
 
     try:
         # 1. Generate Visualization as Pure Executor
-        if routing == "SQL_REQUIRED" and raw_data is not None and not (isinstance(raw_data, pd.DataFrame) and raw_data.empty):
+        # RULE: If we have data, we visualize. Regardless of routing flag.
+        if raw_data is not None and not (isinstance(raw_data, pd.DataFrame) and raw_data.empty):
             fig = generate_visualization(raw_data, chart_type=chart_type, chart_goal=visual_instr)
             data_context = raw_data.to_string(index=False)
         else:

@@ -54,23 +54,24 @@ The system addresses the challenge of extracting reliable and understandable ins
 2. Install dependencies: 
    ```bash
    pip install -r requirements.txt
+   cd frontend
+   pip install
    ```
-3. Initialize the Vector Database: 
+3. Copy `.env.example` to `.env` and add your `GROQ_API_KEY`.
+4. Launch the application: 
    ```bash
-   python src/core/ingest_metadata.py
-   ```
-4. Copy `.env.example` to `.env` and add your `GROQ_API_KEY`.
-5. Launch the application: 
-   ```bash
-   streamlit run src/ui/app.py
+   python -m uvicorn src.api.main:app --reload
+   cd frontend 
+   npm run dev
    ```
 
 ## Tech Stack
 
 ### Frontend & User Interface
-- **Streamlit**: Web application framework for building the primary user interface.
+- **Vite**: Web application framework for building the primary user interface.
+- **React**: Library for building user interfaces.
 - **Plotly**: Interactive graphing library for automated data visualization.
-- **Altair**: Declarative statistical visualization library for charts.
+- **TailwindCSS**: Utility-first CSS framework for styling.
 
 ### AI & Agent Orchestration (Intelligent Mesh)
 - **LangGraph**: Multi-agent workflow orchestration and state management.
@@ -94,9 +95,11 @@ The system addresses the challenge of extracting reliable and understandable ins
 ## Usage Examples
 
 1. **Running the Application**  
-   Start the Streamlit interface:
+   running the server and web interface:
    ```bash
-   streamlit run app.py
+   python -m uvicorn src.api.main:app --reload
+   cd frontend 
+   npm run dev
    ```
    This launches the web interface where users can upload data and interact with the system.
    

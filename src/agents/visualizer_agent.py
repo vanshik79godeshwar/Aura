@@ -63,23 +63,36 @@ def _clean_axis_label(label: str) -> str:
 
 def _apply_theme(fig):
     """
-    Applies a clean, premium dark theme to every Plotly figure,
-    and converts any raw SQL column names / aggregation strings into
-    human-readable axis labels (e.g. 'sum(revenue)' → 'Revenue (₹)').
+    Platinum Chart Theme: Sharp, enterprise-grade visuals.
     """
     # Read whatever labels Plotly already assigned from the px call
     raw_x = (fig.layout.xaxis.title.text or "") if fig.layout.xaxis.title else ""
     raw_y = (fig.layout.yaxis.title.text or "") if fig.layout.yaxis.title else ""
 
     fig.update_layout(
-        template="plotly_dark",
-        plot_bgcolor="#0d1117",
-        paper_bgcolor="#0d1117",
-        font=dict(family="Inter, sans-serif", size=14),
-        hoverlabel=dict(bgcolor="rgba(0,0,0,0.8)", font_size=13, font_family="Inter"),
-        margin=dict(l=20, r=20, t=40, b=20),
+        template="plotly_white",
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Inter, sans-serif", size=12, color="#71717A"),
+        hoverlabel=dict(bgcolor="white", font_size=12, font_family="Inter"),
+        margin=dict(l=20, r=20, t=60, b=20),
         xaxis_title=_clean_axis_label(raw_x),
         yaxis_title=_clean_axis_label(raw_y),
+        title_font=dict(family="Instrument Sans, sans-serif", size=18, color="#09090B"),
+        colorway=['#2563EB', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6']
     )
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor="rgba(255,255,255,0.1)")
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor="rgba(255,255,255,0.1)")
+    
+    fig.update_xaxes(
+        showgrid=True, 
+        gridwidth=1, 
+        gridcolor="#F4F4F5",
+        linecolor="#E4E4E7",
+        tickfont=dict(color="#A1A1AA")
+    )
+    fig.update_yaxes(
+        showgrid=True, 
+        gridwidth=1, 
+        gridcolor="#F4F4F5",
+        linecolor="#E4E4E7",
+        tickfont=dict(color="#A1A1AA")
+    )

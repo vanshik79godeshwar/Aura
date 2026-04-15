@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@variant dark (&:is(.dark *));
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    height: 100vh;
+    overflow: hidden;
+  }
+  #root {
+    height: 100vh;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .font-instrument {
+    font-family: 'Instrument Sans', sans-serif;
+  }
+}
+
+/* Prose overrides for chat bubbles */
+.prose h1, .prose h2, .prose h3 { margin-top: 0.75em; margin-bottom: 0.35em; }
+.prose p { margin-top: 0; margin-bottom: 0.5em; }
+.prose ul, .prose ol { margin-top: 0.25em; margin-bottom: 0.5em; }
+.prose table { font-size: 0.85em; }
+.prose strong { font-weight: 700; }
+.prose code { font-size: 0.85em; background: rgba(0,0,0,0.06); padding: 2px 5px; border-radius: 4px; }
+.prose-invert code { background: rgba(255,255,255,0.1); }

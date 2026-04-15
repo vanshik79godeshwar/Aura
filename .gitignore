@@ -4,3 +4,8 @@ __pycache__/
 venv/
 .DS_Store
 test_pipeline.py
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env

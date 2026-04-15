@@ -15,7 +15,7 @@ llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0, max_retries=3)
 class SupervisorPlan(BaseModel):
     refined_plan: str = Field(description="A multi-step natural language explanation of how you are solving the user's request.")
     routing_decision: Literal["SQL_REQUIRED", "INTERPRETATION_ONLY"] = Field(
-        description="Choose SQL_REQUIRED for data crunching or INTERPRETATION_ONLY for descriptive/schema questions."
+        description="Choose SQL_REQUIRED for any chart, breakdown, aggregation, or data fetching request. Use INTERPRETATION_ONLY only for meta-questions about the schema or system."
     )
     analyst_instructions: str = Field(description="Specific instructions for the SQL Analyst (ignored if INTERPRETATION_ONLY).")
     visualizer_instructions: str = Field(description="Instructions for the Visualizer, including the specific chart_type (Bar, Line, Scatter, Pie, or None) and chart_goal.")

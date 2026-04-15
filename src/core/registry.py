@@ -12,6 +12,32 @@ class ContextRegistry:
     def __init__(self):
         self.registry_path = os.path.join(os.path.dirname(__file__), "metadata_registry.json")
 
+    def ingest_file(self, file_path: str):
+        """
+        Dynamically loads CSV or Excel files into DuckDB via DBEngine.
+        """
+        import pandas as pd
+        from src.core.db_engine import DBEngine
+        engine = DBEngine()
+        
+        table_name = os.path.splitext(os.path.basename(file_path))[0].replace(" ", "_").replace("-", "_")
+        
+        try:
+            con = engine.get_connection()
+            if file_path.endswith('.csv'):
+                # Direct DuckDB high-speed load - Bypass execute_query sanitizer for admin task
+                con.execute(f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM read_csv_auto('{file_path}');")
+            elif file_path.endswith(('.xlsx', '.xls')):
+                # Pandas bridge for Excel formatting
+                df = pd.read_excel(file_path)
+                con.execute(f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM df")
+            
+            print(f"[ContextRegistry] Successfully ingested {file_path} into table {table_name}")
+            return table_name
+        except Exception as e:
+            print(f"[ContextRegistry] Ingestion Error: {e}")
+            raise e
+
     def build_registry(self):
         """
         Runs DESCRIBE and SELECT * LIMIT 5 on every table via DBEngine.
