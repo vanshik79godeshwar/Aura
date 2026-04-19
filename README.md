@@ -55,7 +55,7 @@ The system addresses the challenge of extracting reliable and understandable ins
    ```bash
    pip install -r requirements.txt
    cd frontend
-   pip install
+   npm install
    ```
 3. Copy `.env.example` to `.env` and add your `GROQ_API_KEY`.
 4. Launch the application: 
@@ -146,7 +146,7 @@ The system addresses the challenge of extracting reliable and understandable ins
 6. **API Usage (Optional Backend)**  
    If running the backend API separately:
    ```bash
-   uvicorn main:app --reload
+   python -m uvicorn src.api.main:app --reload
    ```
    Example API request:
    ```bash

@@ -253,7 +253,14 @@ function App() {
     }
   };
 
-  const removeFile = (name) => setUploadedFiles(prev => prev.filter(f => f.name !== name));
+  const removeFile = async (name) => {
+    setUploadedFiles(prev => prev.filter(f => f.name !== name));
+    try {
+      await fetch(`${API_BASE}/delete/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    } catch (e) {
+      console.error("Failed to delete file from backend:", e);
+    }
+  };
 
   const AGENT_STEPS = ['STRATEGIC ROUTING', 'LOGIC DECOMPOSITION', 'EXECUTION VALIDATION', 'INSIGHT SYNTHESIS'];
 

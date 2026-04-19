@@ -17,19 +17,44 @@ class MetadataRetriever:
         Uses Contextual Metadata Retrieval to find the most conceptually relevant 
         tables for a given user query.
         """
-        if not self.collection:
-            return []
+        tables = []
+        if self.collection:
+            try:
+                results = self.collection.query(
+                    query_texts=[user_query],
+                    n_results=top_k
+                )
+                
+                # Extract the table names from the results (index 0 because we passed 1 query)
+                if results and "metadatas" in results and results["metadatas"]:
+                    tables = [meta["table_name"] for meta in results["metadatas"][0]]
+            except Exception as e:
+                print(f"ChromaDB retrieval error: {e}")
 
-        results = self.collection.query(
-            query_texts=[user_query],
-            n_results=top_k
-        )
-        
-        # Extract the table names from the results (index 0 because we passed 1 query)
-        if results and "metadatas" in results and results["metadatas"]:
-            tables = [meta["table_name"] for meta in results["metadatas"][0]]
-            return tables
-        return []
+        # Enforce live synchronization and keyword fallback matching
+        try:
+            from src.core.db_engine import DBEngine
+            live_tables = DBEngine().list_tables()
+            
+            # If the user's query mentions a table name explicitly that wasn't retrieved
+            for lt in live_tables:
+                if lt.lower() in user_query.lower() and lt not in tables:
+                    tables.append(lt)
+            
+            # If there are very few tables, just provide all of them to ensure context is never missed
+            if len(live_tables) <= 3:
+                for lt in live_tables:
+                    if lt not in tables:
+                        tables.append(lt)
+            
+            # Filter non-existent tables to prevent hallucinated references
+            tables = [t for t in tables if t in live_tables]
+
+        except Exception as e:
+            print(f"Error fetching live tables: {e}")
+
+        # Deduplicate while preserving order
+        return list(dict.fromkeys(tables))
 
 def run_retriever(state: dict) -> dict:
     """

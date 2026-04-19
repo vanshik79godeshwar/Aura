@@ -44,6 +44,40 @@ async def upload_file(file: UploadFile = File(...)):
     
     return {"filename": file.filename, "status": "ingested"}
 
+@app.delete("/delete/{filename}")
+async def delete_file(filename: str):
+    file_path = os.path.join("uploads", filename)
+    table_name = os.path.splitext(filename)[0].replace(" ", "_").replace("-", "_")
+    
+    # Remove file from disk
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        
+    # Drop table from DuckDB
+    from src.core.db_engine import DBEngine
+    engine = DBEngine()
+    con = engine.get_connection()
+    try:
+        con.execute(f"DROP TABLE IF EXISTS {table_name};")
+    except Exception as e:
+        print(f"[API] Error dropping table {table_name}: {e}")
+        
+    # Remove from ChromaDB vector system
+    try:
+        import chromadb
+        db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".chroma_db"))
+        client = chromadb.PersistentClient(path=db_path)
+        collection = client.get_collection(name="aura_metadata")
+        collection.delete(ids=[table_name])
+    except Exception as e:
+        print(f"[API] Error deleting vector metadata: {e}")
+        
+    # Rebuild data passport context
+    registry = ContextRegistry()
+    registry.build_registry()
+    
+    return {"status": "deleted", "filename": filename, "table": table_name}
+
 @app.post("/query")
 async def execute_query(req: QueryRequest):
     """

@@ -160,6 +160,9 @@ def route_sentry(state: AgentWorkspace) -> str:
     retries = state.get("retry_count", 0)
     
     if current_status == "sentry_loop_detected":
+        # Intercept duplicate failures gracefully to prevent infinite loops globally
+        if retries >= 3:
+            return "visualizer_and_storyteller"
         return "metadata_retriever"
     
     # Send it to Visualizer if Audit clears. 
